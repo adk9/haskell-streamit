@@ -1,0 +1,62 @@
+name:           streamit
+version:        0.1
+synopsis: 	A StreamIt EDSL in Haskell.
+description: 	StreamIt (http://groups.csail.mit.edu/cag/streamit/) is a
+		stream programming language designed for efficient execution
+		of large streaming applications. The StreamIt runtime system
+		allows executing these stream on a variety of target
+		architectures, including multicore machines and clusters of
+		COTS workstations. With this StreamIt embedded DSL, any
+		Haskell function can be used to generate a computation kernel
+		in the stream graph.
+copyright: 	Copyright (c) 2011 Abhishek Kulkarni
+author:		Abhishek Kulkarni <adkulkar@indiana.edu>
+maintainer:	Abhishek Kulkarni <adkulkar@indiana.edu>
+category: 	Language, Parallelism
+license: 	BSD3
+license-file:   LICENSE
+stability: 	Experimental
+homepage:       http://adk9.github.com/streamit-edsl
+build-type:	Simple
+cabal-Version:	>=1.6
+tested-with:    GHC==7.0.2
+
+extra-source-files:
+  Examples/*.hs
+
+source-repository head
+  type:     git
+  location: git://github.com/adk9/streamit-edsl.git
+
+Flag BasicBuild 
+  Description: Minimize requirements to maximize build success.
+  Default:     False
+
+library
+  exposed-modules:
+    StreamIt.DSL
+    StreamIt.EasyEmit
+
+  build-depends:
+    array,
+    base >= 4 && < 4.4
+
+  extensions:
+    EmptyDataDecls
+    FlexibleInstances
+    FlexibleContexts
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    MultiParamTypeClasses
+    PatternGuards
+    Rank2Types
+    ScopedTypeVariables
+    StandaloneDeriving
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+    UndecidableInstances
+    DeriveDataTypeable
+
+--  GHC-Options: -O2 -threaded 

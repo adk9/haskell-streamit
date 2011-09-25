@@ -1,3 +1,5 @@
+module Fir where
+
 fir N weights = filt (1,1,N)
         (do
                 result <- float 0; -- new, initlzd variable
@@ -10,3 +12,4 @@ fir N weights = filt (1,1,N)
                         pop
                         push result
         )
+
