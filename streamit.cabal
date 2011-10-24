@@ -28,35 +28,23 @@ source-repository head
   type:     git
   location: git://github.com/adk9/streamit-edsl.git
 
-Flag BasicBuild 
-  Description: Minimize requirements to maximize build success.
-  Default:     False
-
 library
   exposed-modules:
-    StreamIt.DSL
-    StreamIt.EasyEmit
+    Language.StreamIt
+    Language.StreamIt.Core
+    Language.StreamIt.Code
+    Language.StreamIt.Tree
 
   build-depends:
-    array,
-    base >= 4 && < 4.4
+    base >= 4.0     && < 5,
+    mtl  >= 1.1.0.1 && < 2.1
 
   extensions:
     EmptyDataDecls
     FlexibleInstances
-    FlexibleContexts
-    FunctionalDependencies
     GADTs
-    GeneralizedNewtypeDeriving
-    MultiParamTypeClasses
-    PatternGuards
-    Rank2Types
-    ScopedTypeVariables
-    StandaloneDeriving
-    TypeFamilies
-    TypeOperators
     TypeSynonymInstances
     UndecidableInstances
     DeriveDataTypeable
 
---  GHC-Options: -O2 -threaded 
+  ghc-options: -W
