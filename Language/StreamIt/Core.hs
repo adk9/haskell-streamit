@@ -3,7 +3,6 @@ module Language.StreamIt.Core
   , V (..)
   , A (..)
   , Name
-  , Path
   , PathName (..)
   , AllE (..)
   , NumE
@@ -12,30 +11,28 @@ module Language.StreamIt.Core
   , arrayLength
   ) where
 
-import Data.List
 import Data.Ratio
 
 type Name = String
 
-type Path = [Name]
-
 -- | A mutable variable.
 data V a
-  = V Path a
+  = V Name a
   deriving Eq
 
 -- | A mutable array.
-data A a = A Path [a] deriving (Eq, Ord)
+data A a = A Name [a] deriving (Eq, Ord)
 
 -- | Length of array.
 arrayLength :: A a -> Int
 arrayLength (A _ a) = length a
 
 class    PathName a       where pathName :: a -> String
-instance PathName Path    where pathName = intercalate "."
+
+instance PathName Name    where pathName = id
 instance PathName (V a)   where
   pathName a = case a of
-    V path _ -> pathName path
+    V name _ -> pathName name
     -- VArray a _ -> pathName a
 instance PathName (A a)   where pathName (A a _) = pathName a
 

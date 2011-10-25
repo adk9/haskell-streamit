@@ -17,17 +17,17 @@ code :: Name -> Statement -> IO ()
 code name stmt = do
   writeFile (name ++ ".c") $
     "void " ++ name ++ "()\n{\n"
-    ++ indent (codeStmt name [] stmt)
+    ++ indent (codeStmt name stmt)
     ++ "}\n\n"
 
-instance Show Statement where show = codeStmt "none" []
+instance Show Statement where show = codeStmt "none"
 
-codeStmt :: Name -> [Name] -> Statement -> String
-codeStmt name path a = case a of
+codeStmt :: Name -> Statement -> String
+codeStmt name a = case a of
   Assign a b -> pathName a ++ " = " ++ codeExpr b ++ ";\n"
-  Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name path b) ++ "}\n"
-  Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name path b) ++ "}\nelse {\n" ++ indent (codeStmt name path c) ++ "}\n"
-  Sequence a b -> codeStmt name path a ++ codeStmt name path b
+  Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
+  Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
+  Sequence a b -> codeStmt name a ++ codeStmt name b
   Push a -> "push(" ++ codeExpr a ++ ");\n"
   Pop -> "pop();\n"
   Peek a -> "peek(" ++ pathName a ++ ");\n"

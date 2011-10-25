@@ -215,22 +215,22 @@ ref = Ref
 mux :: AllE a => E Bool -> E a -> E a -> E a
 mux = Mux
 
-get :: Stmt (Int, [Name], Statement)
+get :: Stmt (Int, Name, Statement)
 get = Stmt $ \ a -> (a, a)
 
-put :: (Int, [Name], Statement) -> Stmt ()
+put :: (Int, Name, Statement) -> Stmt ()
 put s = Stmt $ \ _ -> ((), s)
 
-getPath :: Stmt [Name]
-getPath = do
-  (_, path, _) <- get
-  return path
+getName :: Stmt Name
+getName = do
+  (_, name, _) <- get
+  return name
 
 -- | Generic variable declaration.
 var :: AllE a => Name -> a -> Stmt (V a)
 var name init = do
-  path <- getPath
-  return $ V (path ++ [name]) init
+  name' <- getName
+  return $ V (name' ++ name) init
 
 -- | Generic variable declaration and immediate assignment.
 var' :: AllE a => Name -> E a -> Stmt (E a)
@@ -242,8 +242,8 @@ var' name value = do
 -- | Generic input declaration.
 input :: AllE a => (Name -> a -> Stmt (V a)) -> Name -> Stmt (E a)
 input _ name = do
-  path <- getPath
-  return (ref $ V (path ++ [name]) zero)
+  name' <- getName
+  return (ref $ V (name' ++ name) zero)
 
 -- | Boolean variable declaration.
 bool :: Name -> Bool -> Stmt (V Bool)
@@ -299,7 +299,7 @@ decr :: V Int -> Stmt ()
 decr a = a <== ref a - 1
 
 -- | The Stmt monad holds variable declarations and statements.
-data Stmt a = Stmt ((Int, [Name], Statement) -> (a, (Int, [Name], Statement)))
+data Stmt a = Stmt ((Int, Name, Statement) -> (a, (Int, Name, Statement)))
 
 instance Monad Stmt where
   return a = Stmt $ \ s -> (a, s)
@@ -311,10 +311,10 @@ instance Monad Stmt where
       Stmt f4 = f2 a
 
 statement :: Statement -> Stmt ()
-statement a = Stmt $ \ (id, path, statement) -> ((), (id, path, Sequence statement a))
+statement a = Stmt $ \ (id, name, statement) -> ((), (id, name, Sequence statement a))
 
-evalStmt :: Int -> [Name] -> Stmt () -> (Int, [Name], Statement)
-evalStmt id path (Stmt f) = snd $ f (id, path, Null)
+evalStmt :: Int -> Name -> Stmt () -> (Int, Name, Statement)
+evalStmt id name (Stmt f) = snd $ f (id, name, Null)
 
 class Assign a where (<==) :: V a -> E a -> Stmt ()
 instance AllE a => Assign a where a <== b = statement $ Assign a b
@@ -322,10 +322,10 @@ instance AllE a => Assign a where a <== b = statement $ Assign a b
 -- | Conditional if-else.
 ifelse :: E Bool -> Stmt () -> Stmt () -> Stmt ()
 ifelse cond onTrue onFalse = do
-  (id0, path, stmt) <- get
-  let (id1, _, stmt1) = evalStmt id0 path onTrue
-      (id2, _, stmt2) = evalStmt id1 path onFalse
-  put (id2, path, stmt)
+  (id0, name, stmt) <- get
+  let (id1, _, stmt1) = evalStmt id0 name onTrue
+      (id2, _, stmt2) = evalStmt id1 name onFalse
+  put (id2, name, stmt)
   statement $ Branch cond stmt1 stmt2
 
 -- | Conditional if without the else.
