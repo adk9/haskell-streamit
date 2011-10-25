@@ -10,6 +10,11 @@ import qualified Language.StreamIt.Tree as T
 indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
+indent' :: String -> String
+indent' a = case lines a of
+  [] -> []
+  (a:b) -> a ++ "\n" ++ indent (unlines b)
+
 -- | Generate StreamIt.
 code :: Name -> Statement -> IO ()
 code name stmt = do
@@ -58,11 +63,6 @@ codeStmt name path a = case a of
     where
     group :: [String] -> String
     group a = "(" ++ intercalate " " a ++ ")"
-
-indent' :: String -> String
-indent' a = case lines a of
-  [] -> []
-  (a:b) -> a ++ "\n" ++ indent (unlines b)
 
 codeVariables :: Bool -> (Tree Name (Bool, Path, Const)) -> String
 codeVariables input a = init (init (f1 a)) ++ ";\n"
