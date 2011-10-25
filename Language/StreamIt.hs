@@ -214,22 +214,16 @@ ref = Ref
 mux :: AllE a => E Bool -> E a -> E a -> E a
 mux = Mux
 
-get :: Stmt (Int, Name, Statement)
+get :: Stmt (Int, Statement)
 get = Stmt $ \ a -> (a, a)
 
-put :: (Int, Name, Statement) -> Stmt ()
+put :: (Int, Statement) -> Stmt ()
 put s = Stmt $ \ _ -> ((), s)
-
-getName :: Stmt Name
-getName = do
-  (_, name, _) <- get
-  return name
 
 -- | Generic variable declaration.
 var :: AllE a => Name -> a -> Stmt (V a)
 var name init = do
-  name' <- getName
-  return $ V (name' ++ name) init
+  return $ V name init
 
 -- | Generic variable declaration and immediate assignment.
 var' :: AllE a => Name -> E a -> Stmt (E a)
@@ -291,8 +285,8 @@ incr a = a <== ref a + 1
 decr :: V Int -> Stmt ()
 decr a = a <== ref a - 1
 
--- | The Stmt monad holds variable declarations and statements.
-data Stmt a = Stmt ((Int, Name, Statement) -> (a, (Int, Name, Statement)))
+-- | The Stmt monad holds <strike>variable declarations</strike> and statements.
+data Stmt a = Stmt ((Int, Statement) -> (a, (Int, Statement)))
 
 instance Monad Stmt where
   return a = Stmt $ \ s -> (a, s)
@@ -304,10 +298,10 @@ instance Monad Stmt where
       Stmt f4 = f2 a
 
 statement :: Statement -> Stmt ()
-statement a = Stmt $ \ (id, name, statement) -> ((), (id, name, Sequence statement a))
+statement a = Stmt $ \ (id, statement) -> ((), (id, Sequence statement a))
 
-evalStmt :: Int -> Name -> Stmt () -> (Int, Name, Statement)
-evalStmt id name (Stmt f) = snd $ f (id, name, Null)
+evalStmt :: Int -> Stmt () -> (Int, Statement)
+evalStmt id (Stmt f) = snd $ f (id, Null)
 
 class Assign a where (<==) :: V a -> E a -> Stmt ()
 instance AllE a => Assign a where a <== b = statement $ Assign a b
@@ -315,10 +309,10 @@ instance AllE a => Assign a where a <== b = statement $ Assign a b
 -- | Conditional if-else.
 ifelse :: E Bool -> Stmt () -> Stmt () -> Stmt ()
 ifelse cond onTrue onFalse = do
-  (id0, name, stmt) <- get
-  let (id1, _, stmt1) = evalStmt id0 name onTrue
-      (id2, _, stmt2) = evalStmt id1 name onFalse
-  put (id2, name, stmt)
+  (id0, stmt) <- get
+  let (id1, stmt1) = evalStmt id0 onTrue
+      (id2, stmt2) = evalStmt id1 onFalse
+  put (id2, stmt)
   statement $ Branch cond stmt1 stmt2
 
 -- | Conditional if without the else.
@@ -345,4 +339,4 @@ filter' name filt = analyze (C.code name) filt
 analyze :: (Statement -> IO a) -> Stmt () -> IO a
 analyze f program = f stmt
   where
-  (_, _, stmt) = evalStmt 0 [] program
+  (_, stmt) = evalStmt 0 program
