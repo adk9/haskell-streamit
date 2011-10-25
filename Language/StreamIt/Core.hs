@@ -9,9 +9,6 @@ module Language.StreamIt.Core
   , NumE
   , Const (..)
   , Statement (..)
-  , VarInfo
-  , varInfo
-  , stmtVars
   , arrayLength
   ) where
 
@@ -41,7 +38,6 @@ instance PathName (V a)   where
     V path _ -> pathName path
     -- VArray a _ -> pathName a
 instance PathName (A a)   where pathName (A a _) = pathName a
-instance PathName VarInfo where pathName (path, _) = pathName path
 
 class Eq a => AllE a where
   zero   :: a
@@ -113,40 +109,3 @@ data Const
   | Int    Int
   | Float  Float
   deriving (Show, Eq, Ord)
-
-type VarInfo = (Path, Const)
-
-varInfo :: AllE a => V a -> VarInfo
-varInfo a = case a of
-  V path init -> (path, const' init)
-
--- | Variables in a program.
-stmtVars :: Statement -> [VarInfo]
-stmtVars a = case a of
-  Assign a b    -> nub $ varInfo a : exprVars b
-  Branch a b c  -> nub $ exprVars a ++ stmtVars b ++ stmtVars c
-  Sequence a b  -> nub $ stmtVars a ++ stmtVars b
-  Push a	-> exprVars a
-  Pop           -> []
-  Peek a	-> varInfo a : []
-  Null          -> []
-
--- | Variables in an expression.
-exprVars :: E a -> [VarInfo]
-exprVars a = case a of
-  Ref a     -> [varInfo a]
-  Const _   -> []
-  Add a b   -> exprVars a ++ exprVars b
-  Sub a b   -> exprVars a ++ exprVars b
-  Mul a _   -> exprVars a
-  Div a _   -> exprVars a
-  Mod a _   -> exprVars a
-  Not a     -> exprVars a
-  And a b   -> exprVars a ++ exprVars b
-  Or  a b   -> exprVars a ++ exprVars b
-  Eq  a b   -> exprVars a ++ exprVars b
-  Lt  a b   -> exprVars a ++ exprVars b
-  Gt  a b   -> exprVars a ++ exprVars b
-  Le  a b   -> exprVars a ++ exprVars b
-  Ge  a b   -> exprVars a ++ exprVars b
-  Mux a b c -> exprVars a ++ exprVars b ++ exprVars c

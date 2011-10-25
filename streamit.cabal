@@ -33,7 +33,6 @@ library
     Language.StreamIt
     Language.StreamIt.Core
     Language.StreamIt.Code
-    Language.StreamIt.Tree
 
   build-depends:
     base >= 4.0     && < 5,

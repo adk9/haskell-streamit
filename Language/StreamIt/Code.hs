@@ -1,11 +1,8 @@
 module Language.StreamIt.Code (code) where
 
 import Data.List
-import Text.Printf
 
 import Language.StreamIt.Core
-import Language.StreamIt.Tree hiding (Branch)
-import qualified Language.StreamIt.Tree as T
 
 indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
@@ -20,13 +17,8 @@ code :: Name -> Statement -> IO ()
 code name stmt = do
   writeFile (name ++ ".c") $
     "void " ++ name ++ "()\n{\n"
-    ++ indent (codeVariables scope) ++ "\n"
     ++ indent (codeStmt name [] stmt)
     ++ "}\n\n"
-  where
-    scope = case tree fst $ stmtVars stmt of
-      [] -> error "program contains no useful statements"
-      a  -> T.Branch name a
 
 instance Show Statement where show = codeStmt "none" []
 
@@ -63,13 +55,6 @@ codeStmt name path a = case a of
     where
     group :: [String] -> String
     group a = "(" ++ intercalate " " a ++ ")"
-
-codeVariables :: (Tree Name (Path, Const)) -> String
-codeVariables a = init (init (f1 a)) ++ ";\n"
-  where
-  f1 a = case a of
-    T.Branch _ items -> (concatMap f1 items)
-    Leaf name (_, init) -> printf "%s %s = %s;\n" (showConstType init) name (showConst init)
 
 showConst :: Const -> String
 showConst a = case a of
