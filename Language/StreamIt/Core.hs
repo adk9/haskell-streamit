@@ -93,6 +93,7 @@ instance Fractional (E Float) where
   fromRational r = Const $ fromInteger (numerator r) / fromInteger (denominator r)
 
 data Statement where
+  Decl     :: AllE a => V a -> Statement
   Assign   :: AllE a => V a -> E a -> Statement
   Branch   :: E Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement

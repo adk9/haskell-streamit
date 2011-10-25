@@ -24,6 +24,7 @@ instance Show Statement where show = codeStmt "none"
 
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
+  Decl (V n a) -> showConstType (const' a) ++ " " ++ pathName n ++ " = " ++ showConst (const' a) ++ ";\n"
   Assign a b -> pathName a ++ " = " ++ codeExpr b ++ ";\n"
   Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"

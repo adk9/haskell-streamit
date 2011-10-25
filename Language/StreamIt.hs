@@ -223,6 +223,8 @@ put s = Stmt $ \ _ -> ((), s)
 -- | Generic variable declaration.
 var :: AllE a => Name -> a -> Stmt (V a)
 var name init = do
+  (id, stmt) <- get
+  put (id, Sequence stmt $ Decl (V name init))
   return $ V name init
 
 -- | Generic variable declaration and immediate assignment.
