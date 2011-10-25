@@ -50,7 +50,6 @@ module Language.StreamIt
   -- ** Variable Declarations
   , var
   , var'
-  , input
   , bool
   , bool'
   , int
@@ -238,12 +237,6 @@ var' name value = do
   a <- var name zero
   a <== value
   return $ ref a
-
--- | Generic input declaration.
-input :: AllE a => (Name -> a -> Stmt (V a)) -> Name -> Stmt (E a)
-input _ name = do
-  name' <- getName
-  return (ref $ V (name' ++ name) zero)
 
 -- | Boolean variable declaration.
 bool :: Name -> Bool -> Stmt (V Bool)
