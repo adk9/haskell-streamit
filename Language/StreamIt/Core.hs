@@ -14,7 +14,6 @@ module Language.StreamIt.Core
   , varInfo
   , stmtVars
   , arrayLength
-  , assertions
   ) where
 
 import Data.List
@@ -107,9 +106,6 @@ data Statement where
   Assign   :: AllE a => V a -> E a -> Statement
   Branch   :: E Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
-  Assert   :: Int -> Int -> E Bool -> Statement -- Assert id k expr
-  Assume   :: Int -> E Bool -> Statement        -- Assume id expr
-  Label    :: Name -> Statement -> Statement
   Push     :: AllE a => E a -> Statement
   Pop      :: Statement
   Peek     :: V Int -> Statement
@@ -133,9 +129,6 @@ stmtVars a = case a of
   Assign a b    -> nub $ varInfo a : exprVars b
   Branch a b c  -> nub $ exprVars a ++ stmtVars b ++ stmtVars c
   Sequence a b  -> nub $ stmtVars a ++ stmtVars b
-  Assert  _ _ a -> exprVars a
-  Assume  _ a   -> exprVars a
-  Label  _ a    -> stmtVars a
   Push a	-> exprVars a
   Pop           -> []
   Peek a	-> varInfo a : []
@@ -160,18 +153,3 @@ exprVars a = case a of
   Le  a b   -> exprVars a ++ exprVars b
   Ge  a b   -> exprVars a ++ exprVars b
   Mux a b c -> exprVars a ++ exprVars b ++ exprVars c
-
--- | Assertions in a program.
-assertions :: Statement -> [(Int, Int, E Bool)]
-assertions a = case a of
-  Assert id k expr -> [(id, k, expr)]
-  Assign _ _   -> []
-  Branch _ a b -> assertions a ++ assertions b
-  Sequence a b -> assertions a ++ assertions b
-  Assume _ _   -> []
-  Label  _ a   -> assertions a
-  Push _       -> []
-  Pop	       -> []
-  Peek _       -> []
-  Null         -> []
-

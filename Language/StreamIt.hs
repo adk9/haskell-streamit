@@ -47,8 +47,6 @@ module Language.StreamIt
   , linear
   -- * Statements
   , Stmt
-  -- ** Variable Hierarchical Scope and Statement Labeling 
-  , (-|)
   -- ** Variable Declarations
   , var
   , var'
@@ -73,9 +71,6 @@ module Language.StreamIt
   -- ** Incrementing and decrementing.
   , incr
   , decr
-  -- ** Assumptions and assertions.
-  , assume
-  , assert
   -- * General Analysis
   , analyze
   ) where
@@ -91,7 +86,7 @@ infix  4 ==., /=., <., <=., >., >=.
 infixl 3 &&.
 infixl 2 ||.
 infixr 1 -->
-infixr 0 <==, ==>, -|
+infixr 0 <==, ==>
 
 -- | True term.
 true :: E Bool
@@ -220,18 +215,6 @@ ref = Ref
 mux :: AllE a => E Bool -> E a -> E a -> E a
 mux = Mux
 
--- | Labels a statement and creates a new variable scope.
---   Labels are used in counter examples to help trace the program execution.
-(-|) :: Name -> Stmt a -> Stmt a
-name -| stmt = do
-  (id, path0, stmt0) <- get
-  put (id, path0 ++ [name], Null)
-  a <- stmt
-  (id, _, stmt1) <- get
-  put (id, path0, stmt0)
-  statement $ Label name stmt1
-  return a
-
 get :: Stmt (Int, [Name], Statement)
 get = Stmt $ \ a -> (a, a)
 
@@ -335,23 +318,6 @@ evalStmt id path (Stmt f) = snd $ f (id, path, Null)
 
 class Assign a where (<==) :: V a -> E a -> Stmt ()
 instance AllE a => Assign a where a <== b = statement $ Assign a b
-
--- | Assume a condition is true.
---   Assumptions are used as lemmas to other assertions.
-assume :: Name -> E Bool -> Stmt ()
-assume name a = do
-  (id, path, stmt) <- get
-  put (id + 1, path, Sequence stmt $ Label name $ Assume id a)
-
--- | Defines a new assertion.
---
--- > assert name k proposition
-assert :: Name -> Int -> E Bool -> Stmt ()
-assert name k proposition
-  | k < 1 = error $ "k-induction search depth must be > 0: " ++ name ++ " k = " ++ show k
-  | otherwise = do
-    (id, path, stmt) <- get
-    put (id + 1, path, Sequence stmt $ Label name $ Assert id k proposition)
 
 -- | Conditional if-else.
 ifelse :: E Bool -> Stmt () -> Stmt () -> Stmt ()
