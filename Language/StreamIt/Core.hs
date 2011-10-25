@@ -24,24 +24,24 @@ type Path = [Name]
 
 -- | A mutable variable.
 data V a
-  = V Bool Path a
+  = V Path a
   deriving Eq
 
 -- | A mutable array.
-data A a = A Bool Path [a] deriving (Eq, Ord)
+data A a = A Path [a] deriving (Eq, Ord)
 
 -- | Length of array.
 arrayLength :: A a -> Int
-arrayLength (A _ _ a) = length a
+arrayLength (A _ a) = length a
 
 class    PathName a       where pathName :: a -> String
 instance PathName Path    where pathName = intercalate "."
 instance PathName (V a)   where
   pathName a = case a of
-    V _ path _ -> pathName path
+    V path _ -> pathName path
     -- VArray a _ -> pathName a
-instance PathName (A a)   where pathName (A _ a _) = pathName a
-instance PathName VarInfo where pathName (_, path, _) = pathName path
+instance PathName (A a)   where pathName (A a _) = pathName a
+instance PathName VarInfo where pathName (path, _) = pathName path
 
 class Eq a => AllE a where
   zero   :: a
@@ -114,11 +114,11 @@ data Const
   | Float  Float
   deriving (Show, Eq, Ord)
 
-type VarInfo = (Bool, Path, Const)
+type VarInfo = (Path, Const)
 
 varInfo :: AllE a => V a -> VarInfo
 varInfo a = case a of
-  V input path init -> (input, path, const' init)
+  V path init -> (path, const' init)
 
 -- | Variables in a program.
 stmtVars :: Statement -> [VarInfo]

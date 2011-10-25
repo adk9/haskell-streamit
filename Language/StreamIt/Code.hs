@@ -20,11 +20,11 @@ code :: Name -> Statement -> IO ()
 code name stmt = do
   writeFile (name ++ ".c") $
     "void " ++ name ++ "()\n{\n"
-    ++ indent (codeVariables False scope) ++ "\n"
+    ++ indent (codeVariables scope) ++ "\n"
     ++ indent (codeStmt name [] stmt)
     ++ "}\n\n"
   where
-    scope = case tree (\ (_, path, _) -> path) $ stmtVars stmt of
+    scope = case tree fst $ stmtVars stmt of
       [] -> error "program contains no useful statements"
       a  -> T.Branch name a
 
@@ -64,12 +64,12 @@ codeStmt name path a = case a of
     group :: [String] -> String
     group a = "(" ++ intercalate " " a ++ ")"
 
-codeVariables :: Bool -> (Tree Name (Bool, Path, Const)) -> String
-codeVariables input a = init (init (f1 a)) ++ ";\n"
+codeVariables :: (Tree Name (Path, Const)) -> String
+codeVariables a = init (init (f1 a)) ++ ";\n"
   where
   f1 a = case a of
     T.Branch _ items -> (concatMap f1 items)
-    Leaf name (input, _, init) -> printf "%s %s = %s;\n" (showConstType init) name (showConst init)
+    Leaf name (_, init) -> printf "%s %s = %s;\n" (showConstType init) name (showConst init)
 
 showConst :: Const -> String
 showConst a = case a of

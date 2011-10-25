@@ -230,7 +230,7 @@ getPath = do
 var :: AllE a => Name -> a -> Stmt (V a)
 var name init = do
   path <- getPath
-  return $ V False (path ++ [name]) init
+  return $ V (path ++ [name]) init
 
 -- | Generic variable declaration and immediate assignment.
 var' :: AllE a => Name -> E a -> Stmt (E a)
@@ -243,7 +243,7 @@ var' name value = do
 input :: AllE a => (Name -> a -> Stmt (V a)) -> Name -> Stmt (E a)
 input _ name = do
   path <- getPath
-  return (ref $ V True (path ++ [name]) zero)
+  return (ref $ V (path ++ [name]) zero)
 
 -- | Boolean variable declaration.
 bool :: Name -> Bool -> Stmt (V Bool)

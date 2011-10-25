@@ -4,9 +4,6 @@ import Language.StreamIt
 
 fir :: Stmt ()
 fir = do
-  n <- input int "N"
-  weights <- input float "weights"
-
   result <- float "result" 0
   tmp <- float "tmp" 42
   result <== ref result + ref tmp
