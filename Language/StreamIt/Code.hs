@@ -10,7 +10,7 @@ import qualified Language.StreamIt.Tree as T
 indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
--- | Generate C.
+-- | Generate StreamIt.
 code :: Name -> Statement -> IO ()
 code name stmt = do
   writeFile (name ++ ".c") $

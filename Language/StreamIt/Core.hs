@@ -4,7 +4,6 @@ module Language.StreamIt.Core
   , A (..)
   , Name
   , Path
-  , UID
   , PathName (..)
   , AllE (..)
   , NumE
@@ -22,8 +21,6 @@ import Data.Ratio
 type Name = String
 
 type Path = [Name]
-
-type UID = Int
 
 -- | A mutable variable.
 data V a
