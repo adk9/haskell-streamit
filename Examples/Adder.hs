@@ -4,8 +4,8 @@ import Language.StreamIt
 
 fir :: Stmt ()
 fir = do
-  result <- float "result" 0
-  tmp <- float "tmp" 42
+  result <- float "result"
+  tmp <- float "tmp"
 
   result <== ref result + ref tmp
   pop

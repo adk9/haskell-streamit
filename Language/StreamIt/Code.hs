@@ -24,20 +24,21 @@ instance Show Statement where show = codeStmt "none"
 
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
-  Decl (V n a) -> showConstType (const' a) ++ " " ++ pathName n ++ " = " ++ showConst (const' a) ++ ";\n"
-  Assign a b -> pathName a ++ " = " ++ codeExpr b ++ ";\n"
+  Decl a (Just b) -> showConstType (const' b) ++ " " ++ show a ++ " = " ++ showConst (const' b) ++ ";\n"
+  Decl a Nothing -> show a ++ ";\n"
+  Assign a b -> show a ++ " = " ++ codeExpr b ++ ";\n"
   Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
   Sequence a b -> codeStmt name a ++ codeStmt name b
   Push a -> "push(" ++ codeExpr a ++ ");\n"
   Pop -> "pop();\n"
-  Peek a -> "peek(" ++ pathName a ++ ");\n"
+  Peek a -> "peek(" ++ show a ++ ");\n"
   Null -> ""
   where
 
   codeExpr :: E a -> String
   codeExpr a = case a of
-    Ref a     -> pathName a
+    Ref a     -> show a
     Const a   -> showConst $ const' a
     Add a b   -> group [codeExpr a, "+", codeExpr b]
     Sub a b   -> group [codeExpr a, "-", codeExpr b]

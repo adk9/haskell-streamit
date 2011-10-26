@@ -2,7 +2,6 @@ module Language.StreamIt.Core
   ( E (..)
   , V (..)
   , Name
-  , PathName (..)
   , AllE (..)
   , NumE
   , Const (..)
@@ -15,16 +14,10 @@ type Name = String
 
 -- | A mutable variable.
 data V a
-  = V Name a
+  = V Name
   deriving Eq
 
-class    PathName a       where pathName :: a -> String
-
-instance PathName Name    where pathName = id
-instance PathName (V a)   where
-  pathName a = case a of
-    V name _ -> pathName name
-    -- VArray a _ -> pathName a
+instance Show (V a) where show (V n) = n
 
 class Eq a => AllE a where
   zero   :: a
@@ -37,7 +30,7 @@ instance AllE Bool where
 instance AllE Int where
   zero = 0
   const' = Int
-  
+
 instance AllE Float where
   zero = 0
   const' = Float
@@ -83,7 +76,7 @@ instance Fractional (E Float) where
   fromRational r = Const $ fromInteger (numerator r) / fromInteger (denominator r)
 
 data Statement where
-  Decl     :: AllE a => V a -> Statement
+  Decl     :: AllE a => V a -> Maybe a -> Statement
   Assign   :: AllE a => V a -> E a -> Statement
   Branch   :: E Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement

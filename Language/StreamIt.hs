@@ -49,11 +49,6 @@ module Language.StreamIt
   , Stmt
   -- ** Variable Declarations
   , var
-  , var'
-  , bool
-  , bool'
-  , int
-  , int'
   , float
   , float'
   , push
@@ -224,49 +219,19 @@ put s = Stmt $ \ _ -> ((), s)
 var :: AllE a => Name -> a -> Stmt (V a)
 var name init = do
   (id, stmt) <- get
-  put (id, Sequence stmt $ Decl (V name init))
-  return $ V name init
-
--- | Generic variable declaration and immediate assignment.
-var' :: AllE a => Name -> E a -> Stmt (E a)
-var' name value = do
-  a <- var name zero
-  a <== value
-  return $ ref a
-
--- | Boolean variable declaration.
-bool :: Name -> Bool -> Stmt (V Bool)
-bool = var
-
--- | Boolean variable declaration and immediate assignment.
-bool' :: Name -> E Bool -> Stmt (E Bool)
-bool' name value = do
-  a <- bool name False
-  a <== value
-  return $ ref a
-
--- | Int variable declaration.
-int :: Name -> Int -> Stmt (V Int)
-int = var
-
--- | Int variable declaration and immediate assignment.
-int' :: Name -> E Int -> Stmt (E Int)
-int' name value = do
-  a <- int name 0
-  a <== value
-  return $ ref a
+  put (id, Sequence stmt $ Decl (V name) (Just init))
+  return $ V name
 
 -- | Float variable declaration.
-float :: Name -> Float -> Stmt (V Float)
-float = var
+float :: Name -> Stmt (V Float)
+float name = do
+  (id, stmt) <- get
+  put (id, Sequence stmt $ Decl (V name::V Float) Nothing)
+  return $ V name
 
--- | Float variable declaration and immediate assignment.
-float' :: Name -> E Float -> Stmt (E Float)
-float' name value = do
-  a <- float name 0
-  a <== value
-  return $ ref a
-  
+float' :: Name -> Float -> Stmt (V Float)
+float' = var
+
 -- | Push
 push :: AllE a => E a -> Stmt ()
 push a = statement $ Push a
