@@ -9,17 +9,19 @@ module Language.StreamIt.Core
   ) where
 
 import Data.Ratio
+import Data.Typeable
+import Control.Arrow
 
 type Name = String
 
 -- | A mutable variable.
 data V a
   = V Name
-  deriving Eq
+  deriving (Eq, Typeable)
 
 instance Show (V a) where show (V n) = n
 
-class Eq a => AllE a where
+class (Eq a, Typeable a) => AllE a where
   zero   :: a
   const' :: a -> Const
 

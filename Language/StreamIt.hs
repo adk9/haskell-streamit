@@ -51,6 +51,10 @@ module Language.StreamIt
   , var
   , float
   , float'
+  , int
+  , int'
+  , bool
+  , bool'
   , push
   , peek
   , pop
@@ -231,6 +235,26 @@ float name = do
 
 float' :: Name -> Float -> Stmt (V Float)
 float' = var
+
+-- | Int variable declaration.
+int :: Name -> Stmt (V Int)
+int name = do
+  (id, stmt) <- get
+  put (id, Sequence stmt $ Decl (V name::V Int) Nothing)
+  return $ V name
+
+int' :: Name -> Int -> Stmt (V Int)
+int' = var
+
+-- | Bool variable declaration.
+bool :: Name -> Stmt (V Bool)
+bool name = do
+  (id, stmt) <- get
+  put (id, Sequence stmt $ Decl (V name::V Bool) Nothing)
+  return $ V name
+
+bool' :: Name -> Bool -> Stmt (V Bool)
+bool' = var
 
 -- | Push
 push :: AllE a => E a -> Stmt ()

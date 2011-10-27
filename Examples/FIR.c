@@ -1,8 +1,8 @@
 void FIR()
 {
-	result;
-	tmp;
-	result = (result + tmp);
+	float result;
+	int tmp;
+	result = result;
 	pop();
 	push(result);
 }

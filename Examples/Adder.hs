@@ -5,9 +5,9 @@ import Language.StreamIt
 fir :: Stmt ()
 fir = do
   result <- float "result"
-  tmp <- float "tmp"
+  tmp <- int "tmp"
 
-  result <== ref result + ref tmp
+  result <== ref result
   pop
   push $ ref result
 

@@ -1,6 +1,7 @@
 module Language.StreamIt.Code (code) where
 
 import Data.List
+import Data.Typeable
 
 import Language.StreamIt.Core
 
@@ -25,7 +26,7 @@ instance Show Statement where show = codeStmt "none"
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
   Decl a (Just b) -> showConstType (const' b) ++ " " ++ show a ++ " = " ++ showConst (const' b) ++ ";\n"
-  Decl a Nothing -> show a ++ ";\n"
+  Decl a Nothing -> showVType a ++ " " ++ show a ++ ";\n"
   Assign a b -> show a ++ " = " ++ codeExpr b ++ ";\n"
   Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
@@ -70,3 +71,10 @@ showConstType a = case a of
   Bool  _ -> "boolean"
   Int   _ -> "int"
   Float _ -> "float"
+  
+showVType :: AllE a => V a -> String
+showVType a = case show $ last (snd $ splitTyConApp (typeOf a)) of
+  "Bool"  -> "boolean"
+  "Int"   -> "int"
+  "Float" -> "float"
+  _       -> "void *"
