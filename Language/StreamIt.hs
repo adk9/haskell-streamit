@@ -20,8 +20,6 @@ module Language.StreamIt
   , (||.)
   , and_
   , or_
-  , any_
-  , all_
   , (-->)
   -- ** Equality and Comparison
   , (==.)
@@ -30,21 +28,11 @@ module Language.StreamIt
   , (<=.)
   , (>.)
   , (>=.)
-  -- ** Min, Max, and Limiting
-  , min_
-  , minimum_
-  , max_
-  , maximum_
-  , limit
   -- ** Arithmetic Operations
   , (*.)
   , (/.)
   , div_
   , mod_
-  -- ** Conditional Operator
-  , mux
-  -- ** Lookups
-  , linear
   -- * Statements
   , Stmt
   -- ** Variable Declarations
@@ -118,14 +106,6 @@ and_ = foldl (&&.) true
 or_ :: [E Bool] -> E Bool
 or_ = foldl (||.) false
 
--- | True iff the predicate is true for all elements.
-all_ :: (a -> E Bool) -> [a] -> E Bool
-all_ f a = and_ $ map f a
-
--- | True iff the predicate is true for any element.
-any_ :: (a -> E Bool) -> [a] -> E Bool
-any_ f a = or_ $ map f a
-
 -- | Logical implication.
 (-->) :: E Bool -> E Bool -> E Bool 
 a --> b = not_ a ||. b
@@ -154,29 +134,6 @@ a /=. b = not_ (a ==. b)
 (>=.) :: NumE a => E a -> E a -> E Bool
 (>=.) = Ge
 
--- | Returns the minimum of two numbers.
-min_ :: NumE a => E a -> E a -> E a
-min_ a b = mux (a <=. b) a b
-
--- | Returns the minimum of a list of numbers.
-minimum_ :: NumE a => [E a] -> E a
-minimum_ = foldl1 min_
-
--- | Returns the maximum of two numbers.
-max_ :: NumE a => E a -> E a -> E a
-max_ a b = mux (a >=. b) a b
-
--- | Returns the maximum of a list of numbers.
-maximum_ :: NumE a => [E a] -> E a
-maximum_ = foldl1 max_
-
--- | Limits between min and max.
-limit :: NumE a => E a -> E a -> E a -> E a
-limit a b i = max_ min $ min_ max i
-  where
-  min = min_ a b
-  max = max_ a b
-
 -- | Multiplication.
 (*.) :: NumE a => E a -> a -> E a
 (*.) = Mul
@@ -196,22 +153,9 @@ mod_ :: E Int -> Int -> E Int
 mod_ _ 0 = error "divide by zero (mod_)"
 mod_ a b = Mod a b
 
--- | Linear interpolation and extrapolation of two points.
-linear :: (Float, Float) -> (Float, Float) -> E Float -> E Float
-linear (x1, y1) (x2, y2) a = a *. slope + constant inter
-  where
-  slope = (y2 - y1) / (x2 - x1)
-  inter = y1 - slope * x1
-
 -- | References a variable to be used in an expression ('E').
 ref :: AllE a => V a -> E a
 ref = Ref
-
--- | Conditional expression.
---
--- > mux test onTrue onFalse
-mux :: AllE a => E Bool -> E a -> E a -> E a
-mux = Mux
 
 get :: Stmt (Int, Statement)
 get = Stmt $ \ a -> (a, a)
