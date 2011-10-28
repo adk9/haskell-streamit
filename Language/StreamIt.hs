@@ -34,7 +34,7 @@ module Language.StreamIt
   , div_
   , mod_
   -- * Statements
-  , Stmt
+  , Filter
   -- ** Variable Declarations
   , var
   , float
@@ -156,63 +156,63 @@ mod_ a b = Mod a b
 ref :: AllE a => V a -> E a
 ref = Ref
 
-get :: Stmt (Int, Statement)
-get = Stmt $ \ a -> (a, a)
+get :: Filter (Int, Statement)
+get = Filter $ \ a -> (a, a)
 
-put :: (Int, Statement) -> Stmt ()
-put s = Stmt $ \ _ -> ((), s)
+put :: (Int, Statement) -> Filter ()
+put s = Filter $ \ _ -> ((), s)
 
 -- | Generic variable declaration.
-var :: AllE a => Name -> a -> Stmt (V a)
+var :: AllE a => Name -> a -> Filter (V a)
 var name init = do
   (id, stmt) <- get
   put (id, Sequence stmt $ Decl (V name) (Just init))
   return $ V name
 
 -- | Float variable declaration.
-float :: Name -> Stmt (V Float)
+float :: Name -> Filter (V Float)
 float name = do
   (id, stmt) <- get
   put (id, Sequence stmt $ Decl (V name::V Float) Nothing)
   return $ V name
 
-float' :: Name -> Float -> Stmt (V Float)
+float' :: Name -> Float -> Filter (V Float)
 float' = var
 
 -- | Int variable declaration.
-int :: Name -> Stmt (V Int)
+int :: Name -> Filter (V Int)
 int name = do
   (id, stmt) <- get
   put (id, Sequence stmt $ Decl (V name::V Int) Nothing)
   return $ V name
 
-int' :: Name -> Int -> Stmt (V Int)
+int' :: Name -> Int -> Filter (V Int)
 int' = var
 
 -- | Bool variable declaration.
-bool :: Name -> Stmt (V Bool)
+bool :: Name -> Filter (V Bool)
 bool name = do
   (id, stmt) <- get
   put (id, Sequence stmt $ Decl (V name::V Bool) Nothing)
   return $ V name
 
-bool' :: Name -> Bool -> Stmt (V Bool)
+bool' :: Name -> Bool -> Filter (V Bool)
 bool' = var
 
 -- | Push
-push :: AllE a => E a -> Stmt ()
+push :: AllE a => E a -> Filter ()
 push a = statement $ Push a
 
 -- | Peek
-peek :: V Int -> Stmt ()
+peek :: V Int -> Filter ()
 peek a = statement $ Peek a
 
 -- | Pop
-pop :: Stmt ()
+pop :: Filter ()
 pop = statement Pop
 
 -- | Init
-init' :: Stmt() -> Stmt ()
+init' :: Filter () -> Filter ()
 init' s = do
   (id0, stmt) <- get
   let (id1, stmt1) = evalStmt id0 s
@@ -220,36 +220,36 @@ init' s = do
   statement $ Init stmt1
 
 -- | Work
-work :: (E Int, E Int, E Int) -> Stmt() -> Stmt ()
+work :: (E Int, E Int, E Int) -> Filter () -> Filter ()
 work (push, pop, peek) s = do
   (id0, stmt) <- get
   let (id1, stmt1) = evalStmt id0 s
   put (id1, stmt)
   statement $ Work (push, pop, peek) stmt1
 
--- | The Stmt monad holds <strike>variable declarations</strike> and statements.
-data Stmt a = Stmt ((Int, Statement) -> (a, (Int, Statement)))
+-- | The Filter monad holds StreamIt statements.
+data Filter a = Filter ((Int, Statement) -> (a, (Int, Statement)))
 
-instance Monad Stmt where
-  return a = Stmt $ \ s -> (a, s)
-  (Stmt f1) >>= f2 = Stmt f3
+instance Monad Filter where
+  return a = Filter $ \ s -> (a, s)
+  (Filter f1) >>= f2 = Filter f3
     where
     f3 s1 = f4 s2
       where
       (a, s2) = f1 s1
-      Stmt f4 = f2 a
+      Filter f4 = f2 a
 
-statement :: Statement -> Stmt ()
-statement a = Stmt $ \ (id, statement) -> ((), (id, Sequence statement a))
+statement :: Statement -> Filter ()
+statement a = Filter $ \ (id, statement) -> ((), (id, Sequence statement a))
 
-evalStmt :: Int -> Stmt () -> (Int, Statement)
-evalStmt id (Stmt f) = snd $ f (id, Null)
+evalStmt :: Int -> Filter () -> (Int, Statement)
+evalStmt id (Filter f) = snd $ f (id, Null)
 
-class Assign a where (<==) :: V a -> E a -> Stmt ()
+class Assign a where (<==) :: V a -> E a -> Filter ()
 instance AllE a => Assign a where a <== b = statement $ Assign a b
 
 -- | Conditional if-else.
-ifelse :: E Bool -> Stmt () -> Stmt () -> Stmt ()
+ifelse :: E Bool -> Filter () -> Filter () -> Filter ()
 ifelse cond onTrue onFalse = do
   (id0, stmt) <- get
   let (id1, stmt1) = evalStmt id0 onTrue
@@ -258,27 +258,27 @@ ifelse cond onTrue onFalse = do
   statement $ Branch cond stmt1 stmt2
 
 -- | Conditional if without the else.
-if_ :: E Bool -> Stmt () -> Stmt()
+if_ :: E Bool -> Filter () -> Filter ()
 if_ cond stmt = ifelse cond stmt $ return ()
 
 -- | Condition case statement.
-case_ :: Case () -> Stmt ()
+case_ :: Case () -> Filter ()
 case_ (Case f) = f $ return ()
 
-data Case a = Case (Stmt () -> Stmt ())
+data Case a = Case (Filter () -> Filter ())
 instance Monad Case where
   return _ = Case id
   (>>=) = undefined
   (Case f1) >> (Case f2) = Case $ f1 . f2
 
-(==>) :: E Bool -> Stmt () -> Case ()
+(==>) :: E Bool -> Filter () -> Case ()
 a ==> s = Case $ ifelse a s
 
-filter' :: Name -> Stmt () -> IO ()
+filter' :: Name -> Filter () -> IO ()
 filter' name filt = analyze (C.code name) filt
 
 -- | Generic program analysis.
-analyze :: (Statement -> IO a) -> Stmt () -> IO a
+analyze :: (Statement -> IO a) -> Filter () -> IO a
 analyze f program = f stmt
   where
   (_, stmt) = evalStmt 0 program

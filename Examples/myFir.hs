@@ -2,7 +2,7 @@ module Main (main) where
 
 import Language.StreamIt
 
-fir :: Stmt ()
+fir :: Filter ()
 fir = do
   result <- float "result"
   tmp <- int "tmp"
