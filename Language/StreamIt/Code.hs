@@ -16,7 +16,7 @@ indent' a = case lines a of
 -- | Generate StreamIt.
 code :: Name -> Statement -> IO ()
 code name stmt = do
-  writeFile (name ++ ".c") $
+  writeFile (name ++ ".str") $
     "filter " ++ name ++ "()\n{\n"
     ++ indent (codeStmt name stmt)
     ++ "}\n\n"

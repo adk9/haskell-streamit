@@ -16,4 +16,4 @@ fir = do
   push $ ref result
 
 main :: IO ()
-main = filter' "FIR" fir
+main = filter' "myFir" fir
