@@ -8,6 +8,10 @@ fir = do
   tmp <- int "tmp"
 
   result <== ref result
+  work (1, 0, 0) $ do
+    moo <- int "moo"
+    moo <== ref moo
+
   pop
   push $ ref result
 

@@ -46,6 +46,8 @@ module Language.StreamIt
   , push
   , peek
   , pop
+  , work
+  , init'
   , filter'
   -- ** Variable Assignment
   , Assign (..)
@@ -54,9 +56,6 @@ module Language.StreamIt
   , if_
   , case_
   , (==>)
-  -- ** Incrementing and decrementing.
-  , incr
-  , decr
   -- * General Analysis
   , analyze
   ) where
@@ -212,13 +211,21 @@ peek a = statement $ Peek a
 pop :: Stmt ()
 pop = statement Pop
 
--- | Increments an E Int.
-incr :: V Int -> Stmt ()
-incr a = a <== ref a + 1
+-- | Init
+init' :: Stmt() -> Stmt ()
+init' s = do
+  (id0, stmt) <- get
+  let (id1, stmt1) = evalStmt id0 s
+  put (id1, stmt)
+  statement $ Init stmt1
 
--- | Decrements an E Int.
-decr :: V Int -> Stmt ()
-decr a = a <== ref a - 1
+-- | Work
+work :: (E Int, E Int, E Int) -> Stmt() -> Stmt ()
+work (push, pop, peek) s = do
+  (id0, stmt) <- get
+  let (id1, stmt1) = evalStmt id0 s
+  put (id1, stmt)
+  statement $ Work (push, pop, peek) stmt1
 
 -- | The Stmt monad holds <strike>variable declarations</strike> and statements.
 data Stmt a = Stmt ((Int, Statement) -> (a, (Int, Statement)))

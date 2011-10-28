@@ -17,7 +17,7 @@ indent' a = case lines a of
 code :: Name -> Statement -> IO ()
 code name stmt = do
   writeFile (name ++ ".c") $
-    "void " ++ name ++ "()\n{\n"
+    "filter " ++ name ++ "()\n{\n"
     ++ indent (codeStmt name stmt)
     ++ "}\n\n"
 
@@ -31,6 +31,8 @@ codeStmt name a = case a of
   Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
   Sequence a b -> codeStmt name a ++ codeStmt name b
+  Init a -> "init {\n" ++ indent (codeStmt name a) ++ "}\n"
+  Work (a, b, c) d -> "work" ++ showFlowRate " push " a ++ showFlowRate " pop " b ++ showFlowRate " peek " c ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
   Push a -> "push(" ++ codeExpr a ++ ");\n"
   Pop -> "pop();\n"
   Peek a -> "peek(" ++ show a ++ ");\n"
@@ -58,6 +60,11 @@ codeStmt name a = case a of
     where
     group :: [String] -> String
     group a = "(" ++ intercalate " " a ++ ")"
+    
+  showFlowRate :: String -> E Int -> String
+  showFlowRate token a = case a of
+    Const 0 -> ""
+    _       -> token ++ codeExpr a
 
 showConst :: Const -> String
 showConst a = case a of

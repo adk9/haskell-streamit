@@ -10,7 +10,6 @@ module Language.StreamIt.Core
 
 import Data.Ratio
 import Data.Typeable
-import Control.Arrow
 
 type Name = String
 
@@ -82,6 +81,8 @@ data Statement where
   Assign   :: AllE a => V a -> E a -> Statement
   Branch   :: E Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
+  Work     :: (E Int, E Int, E Int) -> Statement -> Statement
+  Init     :: Statement -> Statement
   Push     :: AllE a => E a -> Statement
   Pop      :: Statement
   Peek     :: V Int -> Statement
