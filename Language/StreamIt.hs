@@ -274,8 +274,8 @@ instance Monad Case where
 (==>) :: E Bool -> Filter () -> Case ()
 a ==> s = Case $ ifelse a s
 
-filter' :: Name -> Filter () -> IO ()
-filter' name filt = analyze (C.code name) filt
+filter' :: String -> Name -> Filter () -> IO ()
+filter' ty name filt = analyze (C.code ty name) filt
 
 -- | Generic program analysis.
 analyze :: (Statement -> IO a) -> Filter () -> IO a

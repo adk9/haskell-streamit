@@ -2,8 +2,8 @@ module Main (main) where
 
 import Language.StreamIt
 
-fir :: Filter ()
-fir = do
+myFir :: Filter ()
+myFir = do
   result <- float "result"
   tmp <- int "tmp"
 
@@ -16,4 +16,4 @@ fir = do
   push $ ref result
 
 main :: IO ()
-main = filter' "myFir" fir
+main = filter' "float->float" "myFir" myFir

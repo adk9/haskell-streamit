@@ -1,4 +1,4 @@
-filter myFir()
+float->float filter myFir()
 {
 	float result;
 	int tmp;
