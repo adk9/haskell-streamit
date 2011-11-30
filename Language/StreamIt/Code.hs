@@ -36,6 +36,7 @@ codeStmt name a = case a of
   Push a -> "push(" ++ codeExpr a ++ ");\n"
   Pop -> "pop();\n"
   Peek a -> "peek(" ++ show a ++ ");\n"
+  Println a -> "println(" ++ codeExpr a ++ ");\n"
   Null -> ""
   where
 

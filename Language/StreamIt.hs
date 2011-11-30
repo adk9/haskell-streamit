@@ -36,6 +36,7 @@ module Language.StreamIt
   -- * Statements
   , Filter
   -- ** Variable Declarations
+  , input
   , var
   , float
   , float'
@@ -46,6 +47,7 @@ module Language.StreamIt
   , push
   , peek
   , pop
+  , println
   , work
   , init'
   , filter'
@@ -162,6 +164,11 @@ get = Filter $ \ a -> (a, a)
 put :: (Int, Statement) -> Filter ()
 put s = Filter $ \ _ -> ((), s)
 
+input  :: AllE a => (Name -> Filter (V a)) -> Name -> E a
+input _ n = ref $ V n
+
+-- TODO: add input'
+
 -- | Generic variable declaration.
 var :: AllE a => Name -> a -> Filter (V a)
 var name init = do
@@ -208,8 +215,15 @@ peek :: V Int -> Filter ()
 peek a = statement $ Peek a
 
 -- | Pop
-pop :: Filter ()
-pop = statement Pop
+pop :: Filter (V Int)
+pop = do
+  (id, stmt) <- get
+  put (id, Sequence stmt $ Pop)
+  return $ V "pop()"
+
+-- | Println
+println :: AllE a => E a -> Filter ()
+println a = statement $ Println a
 
 -- | Init
 init' :: Filter () -> Filter ()

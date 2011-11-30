@@ -86,6 +86,7 @@ data Statement where
   Push     :: AllE a => E a -> Statement
   Pop      :: Statement
   Peek     :: V Int -> Statement
+  Println  :: AllE a => E a -> Statement
   Null     :: Statement
 
 data Const

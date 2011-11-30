@@ -2,8 +2,8 @@ float->float filter myFir()
 {
 	float result;
 	int tmp;
-	result = result;
-	work push 1 {
+	result = (result + weights);
+	work push 1 peek n {
 		int moo;
 		moo = moo;
 	}
