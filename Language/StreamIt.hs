@@ -164,11 +164,6 @@ get = Filter $ \ a -> (a, a)
 put :: (Int, Statement) -> Filter ()
 put s = Filter $ \ _ -> ((), s)
 
-input  :: AllE a => (Name -> Filter (V a)) -> Name -> E a
-input _ n = ref $ V n
-
--- TODO: add input'
-
 -- | Generic variable declaration.
 var :: AllE a => Name -> a -> Filter (V a)
 var name init = do
