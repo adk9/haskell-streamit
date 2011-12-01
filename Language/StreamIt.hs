@@ -58,8 +58,6 @@ module Language.StreamIt
   , (==>)
   -- * Code Generation
   , filter'
-  -- * General Analysis
-  , analyze
   ) where
 
 import Language.StreamIt.Core
@@ -67,10 +65,6 @@ import Language.StreamIt.Filter
 import qualified Language.StreamIt.Code as C
 
 filter' :: String -> Name -> Filter () -> IO ()
-filter' ty name filt = analyze (C.code ty name) filt
-
--- | Generic program analysis.
-analyze :: (Statement -> IO a) -> Filter () -> IO a
-analyze f program = f stmt
+filter' ty name filt = (C.code ty name) stmt
   where
-  (_, stmt) = evalStmt 0 program
+    (_, stmt) = evalStmt 0 filt
