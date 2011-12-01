@@ -33,6 +33,7 @@ library
     Language.StreamIt
     Language.StreamIt.Core
     Language.StreamIt.Filter
+    Language.StreamIt.Graph
     Language.StreamIt.Code
 
   build-depends:

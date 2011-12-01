@@ -12,6 +12,8 @@ module Language.StreamIt
   , false
   , constant
   , zero
+  , incr
+  , decr
   -- ** Variable Reference
   , ref
   -- ** Logical Operations
@@ -46,6 +48,7 @@ module Language.StreamIt
   , push
   , peek
   , pop
+  , pop'
   , println
   , work
   , init'
@@ -56,15 +59,20 @@ module Language.StreamIt
   , if_
   , case_
   , (==>)
+  , StreamIt
+  -- * Stream Graph Constructs
+  , add
+  , pipeline
   -- * Code Generation
-  , filter'
+  , runStreamIt
   ) where
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
-import qualified Language.StreamIt.Code as C
+import Language.StreamIt.Graph
+import Language.StreamIt.Code
 
-filter' :: String -> Name -> Filter () -> IO ()
-filter' ty name filt = (C.code ty name) stmt
+runStreamIt :: Name -> StreamIt () -> IO ()
+runStreamIt name s = (code name) node
   where
-    (_, stmt) = evalStmt 0 filt
+    (_, node) = evalStream 0 s

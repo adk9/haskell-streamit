@@ -5,22 +5,31 @@ import Data.Typeable
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
+import Language.StreamIt.Graph
 
 indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
-indent' :: String -> String
-indent' a = case lines a of
-  [] -> []
-  (a:b) -> a ++ "\n" ++ indent (unlines b)
-
 -- | Generate StreamIt.
-code :: String -> Name -> Statement -> IO ()
-code ty name stmt = do
-  writeFile (name ++ ".str") $
-    ty ++ " filter " ++ name ++ "()\n{\n"
-    ++ indent (codeStmt name stmt)
-    ++ "}\n\n"
+code :: Name -> StreamNode -> IO ()
+code name node = do
+  writeFile name $
+    intercalate "\n\n" (map codeFilter $ streamFilters node)
+    ++ "\n\n" ++ (codeNode node) ++ "\n"
+
+instance Show StreamNode where show = codeNode
+
+codeNode :: StreamNode -> String
+codeNode a = case a of
+  AddF _ n _ -> "add " ++ n ++ "();\n"
+  Pipeline ty n a -> ty ++ " pipeline " ++ n ++ " {\n" ++ indent (codeNode a) ++ "}\n"
+  Chain a b -> codeNode a ++ codeNode b
+  Empty -> ""
+
+codeFilter :: (TypeSig, Name, Statement) -> String
+codeFilter (ty, name, stmt) = ty ++ " filter " ++ name ++ "()\n{\n"
+                              ++ indent (codeStmt name stmt)
+                              ++ "}"
 
 instance Show Statement where show = codeStmt "none"
 

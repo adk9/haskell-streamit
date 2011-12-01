@@ -10,12 +10,13 @@ intSource = do
     x <== 0
 
   work (1, 0, 0) $ do
-    push(ref x + 1)
+    incr x
+    push(ref x)
 
 intPrinter :: Filter ()
 intPrinter = do
   work (0, 1, 0) $ do
-    pop >>= (println . ref)
+    println $ pop'
 
 helloWorld :: StreamIt ()
 helloWorld = pipeline "void->void" "HelloWorld" $ do
@@ -23,4 +24,4 @@ helloWorld = pipeline "void->void" "HelloWorld" $ do
   add "int->void" "IntPrinter" intPrinter
 
 main :: IO ()
-main = runStreamIt helloWorld
+main = runStreamIt "HelloWorld.str" helloWorld

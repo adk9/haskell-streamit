@@ -12,6 +12,9 @@ module Language.StreamIt.Filter
   , push
   , peek
   , pop
+  , pop'
+  , incr
+  , decr
   , println
   , work
   , init'
@@ -40,7 +43,7 @@ data Statement where
   Println  :: AllE a => E a -> Statement
   Null     :: Statement
 
--- | The Filter monad holds StreamIt statements.
+-- | The Filter monad holds StreamIt filter statements.
 data Filter a = Filter ((Int, Statement) -> (a, (Int, Statement)))
 
 instance Monad Filter where
@@ -101,6 +104,14 @@ bool name = do
 bool' :: Name -> Bool -> Filter (V Bool)
 bool' = var
 
+-- | Increments an E Int.
+incr :: V Int -> Filter ()
+incr a = a <== ref a + 1
+
+-- | Decrements an E Int.
+decr :: V Int -> Filter ()
+decr a = a <== ref a - 1
+
 -- | Push
 push :: AllE a => E a -> Filter ()
 push a = statement $ Push a
@@ -110,11 +121,12 @@ peek :: V Int -> Filter ()
 peek a = statement $ Peek a
 
 -- | Pop
-pop :: Filter (V Int)
-pop = do
-  (id, stmt) <- get
-  put (id, Sequence stmt $ Pop)
-  return $ V "pop()"
+pop :: Filter ()
+pop = statement $ Pop
+
+-- | Pop'
+pop' :: E Int
+pop' = Ref (V "pop()")
 
 -- | Println
 println :: AllE a => E a -> Filter ()

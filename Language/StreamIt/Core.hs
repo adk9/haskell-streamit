@@ -1,6 +1,7 @@
 module Language.StreamIt.Core
   ( E (..)
   , V (..)
+  , TypeSig
   , Name
   , AllE (..)
   , NumE
@@ -37,6 +38,7 @@ infixl 3 &&.
 infixl 2 ||.
 infixr 1 -->
 
+type TypeSig = String
 type Name = String
 
 -- | A mutable variable.
