@@ -19,9 +19,9 @@ intPrinter = do
     println $ pop'
 
 helloWorld :: StreamIt ()
-helloWorld = pipeline "void->void" "HelloWorld" $ do
+helloWorld = pipeline $ do
   add "void->int" "IntSource" intSource
   add "int->void" "IntPrinter" intPrinter
 
 main :: IO ()
-main = runStreamIt "HelloWorld.str" helloWorld
+main = runStreamIt "void->void" "HelloWorld" helloWorld

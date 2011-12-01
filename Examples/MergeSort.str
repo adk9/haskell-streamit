@@ -16,15 +16,24 @@ int->int filter Merger()
 	}
 }
 
+int->int filter Merger2()
+{
+	work push 1 pop 1 {
+		int index1 = 0;
+		push(index1);
+		pop();
+	}
+}
+
 int->void filter IntPrinter()
 {
 	work pop 1 {
 		println(pop());
 	}
 }
-
 int->int pipeline Sorter {
 	add Merger();
+	add Merger2();
 }
 
 void->void pipeline MergeSort {

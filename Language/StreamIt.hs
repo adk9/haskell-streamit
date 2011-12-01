@@ -73,7 +73,7 @@ import Language.StreamIt.Filter
 import Language.StreamIt.Graph
 import Language.StreamIt.Code
 
-runStreamIt :: Name -> StreamIt () -> IO ()
-runStreamIt name s = (code name) node
+runStreamIt :: TypeSig -> Name -> StreamIt () -> IO ()
+runStreamIt ty name s = (code ty name) node
   where
     (_, node) = evalStream 0 s

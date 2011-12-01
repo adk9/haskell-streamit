@@ -11,23 +11,22 @@ indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
 -- | Generate StreamIt.
-code :: Name -> StreamNode -> IO ()
-code name node = do
-  writeFile name $
+code :: TypeSig -> Name -> StreamNode -> IO ()
+code ty name node = do
+  writeFile (name ++ ".str") $
     (intercalate "\n\n" $ map codeFilter fs)
-    ++ "\n\n" ++ (intercalate "\n\n" $ map codeNode gs)
-    ++ "\n" ++ (codeNode node) ++ "\n"
+    ++ "\n" ++ (intercalate "\n\n" $ map codeNode gs)
+    ++ "\n" ++ codeNode (ty, name, node) ++ "\n"
   where
     (fs, gs) = findDefs node
 
-instance Show StreamNode where show = codeNode
-
-codeNode :: StreamNode -> String
-codeNode a = case a of
+codeNode :: (TypeSig, Name, StreamNode) -> String
+codeNode (ty, name, sn) = case sn of
   AddF _ n _      -> "add " ++ n ++ "();\n"
-  AddN n _        -> "add " ++ n ++ "();\n"
-  Pipeline ty n a -> ty ++ " pipeline " ++ n ++ " {\n" ++ indent (codeNode a) ++ "}\n"
-  Chain a b       -> codeNode a ++ codeNode b
+  AddN _ n _      -> "add " ++ n ++ "();\n"
+  Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
+                     ++ (indent $ codeNode (ty, name, a)) ++ "}\n"
+  Chain a b       -> codeNode (ty, name, a) ++ codeNode (ty, name, b)
   Empty           -> ""
 
 codeFilter :: (TypeSig, Name, Statement) -> String
