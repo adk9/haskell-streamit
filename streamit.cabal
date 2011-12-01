@@ -32,6 +32,7 @@ library
   exposed-modules:
     Language.StreamIt
     Language.StreamIt.Core
+    Language.StreamIt.Filter
     Language.StreamIt.Code
 
   build-depends:

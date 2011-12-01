@@ -5,11 +5,37 @@ module Language.StreamIt.Core
   , AllE (..)
   , NumE
   , Const (..)
-  , Statement (..)
+  , true
+  , false
+  , constant
+  , ref
+  , not_
+  , (&&.)
+  , (||.)
+  , and_
+  , or_
+  , (-->)
+  , (==.)
+  , (/=.)
+  , (<.)
+  , (<=.)
+  , (>.)
+  , (>=.)
+  , (*.)
+  , (/.)
+  , div_
+  , mod_
   ) where
 
 import Data.Ratio
 import Data.Typeable
+
+--infixl 9 !, !.
+infixl 7 *., /., `div_`, `mod_`
+infix  4 ==., /=., <., <=., >., >=.
+infixl 3 &&.
+infixl 2 ||.
+infixr 1 -->
 
 type Name = String
 
@@ -76,21 +102,91 @@ instance Fractional (E Float) where
   recip a = 1 / a
   fromRational r = Const $ fromInteger (numerator r) / fromInteger (denominator r)
 
-data Statement where
-  Decl     :: AllE a => V a -> Maybe a -> Statement
-  Assign   :: AllE a => V a -> E a -> Statement
-  Branch   :: E Bool -> Statement -> Statement -> Statement
-  Sequence :: Statement -> Statement -> Statement
-  Work     :: (E Int, E Int, E Int) -> Statement -> Statement
-  Init     :: Statement -> Statement
-  Push     :: AllE a => E a -> Statement
-  Pop      :: Statement
-  Peek     :: V Int -> Statement
-  Println  :: AllE a => E a -> Statement
-  Null     :: Statement
-
 data Const
   = Bool   Bool
   | Int    Int
   | Float  Float
   deriving (Show, Eq, Ord)
+
+-- | True term.
+true :: E Bool
+true = Const True
+
+-- | False term.
+false :: E Bool
+false = Const False
+
+-- | Arbitrary constants.
+constant :: AllE a => a -> E a
+constant = Const
+
+-- | Logical negation.
+not_ :: E Bool -> E Bool
+not_ = Not
+
+-- | Logical AND.
+(&&.) :: E Bool -> E Bool -> E Bool
+(&&.) = And
+
+-- | Logical OR.
+(||.) :: E Bool -> E Bool -> E Bool
+(||.) = Or
+
+-- | The conjunction of a E Bool list.
+and_ :: [E Bool] -> E Bool
+and_ = foldl (&&.) true
+
+-- | The disjunction of a E Bool list.
+or_ :: [E Bool] -> E Bool
+or_ = foldl (||.) false
+
+-- | Logical implication.
+(-->) :: E Bool -> E Bool -> E Bool 
+a --> b = not_ a ||. b
+
+-- | Equal.
+(==.) :: AllE a => E a -> E a -> E Bool
+(==.) = Eq
+
+-- | Not equal.
+(/=.) :: AllE a => E a -> E a -> E Bool
+a /=. b = not_ (a ==. b)
+
+-- | Less than.
+(<.) :: NumE a => E a -> E a -> E Bool
+(<.) = Lt
+
+-- | Greater than.
+(>.) :: NumE a => E a -> E a -> E Bool
+(>.) = Gt
+
+-- | Less than or equal.
+(<=.) :: NumE a => E a -> E a -> E Bool
+(<=.) = Le
+
+-- | Greater than or equal.
+(>=.) :: NumE a => E a -> E a -> E Bool
+(>=.) = Ge
+
+-- | Multiplication.
+(*.) :: NumE a => E a -> a -> E a
+(*.) = Mul
+
+-- | Floating point division.
+(/.) :: E Float -> Float -> E Float
+_ /. 0 = error "divide by zero (/.)"
+a /. b = Div a b
+
+-- | Integer division.
+div_ :: E Int -> Int -> E Int
+div_ _ 0 = error "divide by zero (div_)"
+div_ a b = Div a b
+
+-- | Modulo.
+mod_ :: E Int -> Int -> E Int
+mod_ _ 0 = error "divide by zero (mod_)"
+mod_ a b = Mod a b
+
+-- | References a variable to be used in an expression ('E').
+ref :: AllE a => V a -> E a
+ref = Ref

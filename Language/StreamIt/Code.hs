@@ -4,6 +4,7 @@ import Data.List
 import Data.Typeable
 
 import Language.StreamIt.Core
+import Language.StreamIt.Filter
 
 indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
