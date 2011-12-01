@@ -1,0 +1,35 @@
+void->int filter SortInput()
+{
+	work push 1 {
+		int x = 0;
+		push(x);
+	}
+}
+
+int->int filter Merger()
+{
+	work pop 1 peek 1 {
+		int index1 = 0;
+		int index2 = 1;
+		push(index2);
+		pop();
+	}
+}
+
+int->void filter IntPrinter()
+{
+	work pop 1 {
+		println(pop());
+	}
+}
+
+int->int pipeline Sorter {
+	add Merger();
+}
+
+void->void pipeline MergeSort {
+	add SortInput();
+	add Sorter();
+	add IntPrinter();
+}
+

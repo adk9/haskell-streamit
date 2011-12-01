@@ -14,17 +14,21 @@ indent = unlines . map ("\t" ++) . lines
 code :: Name -> StreamNode -> IO ()
 code name node = do
   writeFile name $
-    intercalate "\n\n" (map codeFilter $ streamFilters node)
-    ++ "\n\n" ++ (codeNode node) ++ "\n"
+    (intercalate "\n\n" $ map codeFilter fs)
+    ++ "\n\n" ++ (intercalate "\n\n" $ map codeNode gs)
+    ++ "\n" ++ (codeNode node) ++ "\n"
+  where
+    (fs, gs) = findDefs node
 
 instance Show StreamNode where show = codeNode
 
 codeNode :: StreamNode -> String
 codeNode a = case a of
-  AddF _ n _ -> "add " ++ n ++ "();\n"
+  AddF _ n _      -> "add " ++ n ++ "();\n"
+  AddN n _        -> "add " ++ n ++ "();\n"
   Pipeline ty n a -> ty ++ " pipeline " ++ n ++ " {\n" ++ indent (codeNode a) ++ "}\n"
-  Chain a b -> codeNode a ++ codeNode b
-  Empty -> ""
+  Chain a b       -> codeNode a ++ codeNode b
+  Empty           -> ""
 
 codeFilter :: (TypeSig, Name, Statement) -> String
 codeFilter (ty, name, stmt) = ty ++ " filter " ++ name ++ "()\n{\n"
@@ -35,19 +39,24 @@ instance Show Statement where show = codeStmt "none"
 
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
-  Decl a (Just b) -> showConstType (const' b) ++ " " ++ show a ++ " = " ++ showConst (const' b) ++ ";\n"
-  Decl a Nothing -> showVType a ++ " " ++ show a ++ ";\n"
-  Assign a b -> show a ++ " = " ++ codeExpr b ++ ";\n"
-  Branch a b Null -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
-  Branch a b c    -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
-  Sequence a b -> codeStmt name a ++ codeStmt name b
-  Init a -> "init {\n" ++ indent (codeStmt name a) ++ "}\n"
-  Work (a, b, c) d -> "work" ++ showFlowRate " push " a ++ showFlowRate " pop " b ++ showFlowRate " peek " c ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
-  Push a -> "push(" ++ codeExpr a ++ ");\n"
-  Pop -> "pop();\n"
-  Peek a -> "peek(" ++ show a ++ ");\n"
-  Println a -> "println(" ++ codeExpr a ++ ");\n"
-  Null -> ""
+  Decl a (Just b)  -> showConstType (const' b) ++ " " ++ show a ++ " = "
+                      ++ showConst (const' b) ++ ";\n"
+  Decl a Nothing   -> showVType a ++ " " ++ show a ++ ";\n"
+  Assign a b       -> show a ++ " = " ++ codeExpr b ++ ";\n"
+  Branch a b Null  -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
+  Branch a b c     -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b)
+                      ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
+  Sequence a b     -> codeStmt name a ++ codeStmt name b
+  Init a           -> "init {\n" ++ indent (codeStmt name a) ++ "}\n"
+  Work (a, b, c) d -> "work" ++ showFlowRate " push " a
+                      ++ showFlowRate " pop " b
+                      ++ showFlowRate " peek " c
+                      ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
+  Push a           -> "push(" ++ codeExpr a ++ ");\n"
+  Pop              -> "pop();\n"
+  Peek a           -> "peek(" ++ show a ++ ");\n"
+  Println a        -> "println(" ++ codeExpr a ++ ");\n"
+  Null             -> ""
   where
 
   codeExpr :: E a -> String

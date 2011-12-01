@@ -2,9 +2,9 @@ module Language.StreamIt.Graph
   ( StreamIt (..)
   , StreamNode (..)
   , evalStream
-  , FilterInfo
-  , streamFilters
+  , findDefs
   , add
+  , add'
   , pipeline
   ) where
 
@@ -18,9 +18,8 @@ data StreamNode where
   Chain    :: StreamNode -> StreamNode -> StreamNode
   Empty    :: StreamNode
   AddF     :: TypeSig -> Name -> Filter () -> StreamNode
+  AddN     :: Name -> StreamIt () -> StreamNode
   Pipeline :: TypeSig -> Name -> StreamNode -> StreamNode
-
-type FilterInfo = (TypeSig, Name, Statement)
 
 -- | The StreamIt monad holds the StreamIt graph.
 data StreamIt a = StreamIt ((Int, StreamNode) -> (a, (Int, StreamNode)))
@@ -46,22 +45,34 @@ get = StreamIt $ \ a -> (a, a)
 put :: (Int, StreamNode) -> StreamIt ()
 put s = StreamIt $ \ _ -> ((), s)
 
-noob :: [FilterInfo] -> [FilterInfo]
-noob a = nubBy (\xs ys -> name xs == name ys) a
-  where name (_, n, _) = n
+graphInfo :: StreamIt () -> StreamNode
+graphInfo n = snd (evalStream 0 n)
 
-streamFilters :: StreamNode -> [FilterInfo]
-streamFilters a = case a of
-  AddF a b c     -> noob $ [(a, b, filterInfo c)]
-  Pipeline _ _ c -> noob $ streamFilters c
-  Chain a b      -> noob $ streamFilters a ++ streamFilters b
-  Empty          -> []
+findDefs :: StreamNode -> ([FilterInfo], [StreamNode])
+findDefs a = case a of
+  AddF a b c     -> ([(a, b, filterInfo c)],[])
+  AddN _ a         -> (fst fa, snd fa ++ [graphInfo a])
+    where
+      fa = findDefs (graphInfo a)
+  Pipeline _ _ c -> findDefs c
+  Chain a b      -> (noob $ fst fa ++ fst fb, snd fa ++ snd fb)
+    where
+      fa = findDefs a
+      fb = findDefs b
+  Empty          -> ([],[])
   where
     filterInfo :: Filter () -> Statement
     filterInfo c = snd (evalStmt 0 c)
-  
+
+    noob :: [FilterInfo] -> [FilterInfo]
+    noob a = nubBy (\xs ys -> name xs == name ys) a
+      where name (_, n, _) = n
+
 add :: TypeSig -> Name -> Filter () -> StreamIt ()
 add ty name filt = addNode $ AddF ty name filt
+
+add' :: Name -> StreamIt () -> StreamIt ()
+add' name node = addNode $ AddN name node
 
 pipeline :: TypeSig -> Name -> StreamIt () -> StreamIt ()
 pipeline ty name n = do

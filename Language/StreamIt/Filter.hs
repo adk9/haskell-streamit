@@ -2,6 +2,7 @@ module Language.StreamIt.Filter
   ( Statement (..)
   , evalStmt
   , Filter (..)
+  , FilterInfo
   , var
   , float
   , float'
@@ -66,6 +67,8 @@ get = Filter $ \ a -> (a, a)
 
 put :: (Int, Statement) -> Filter ()
 put s = Filter $ \ _ -> ((), s)
+
+type FilterInfo = (TypeSig, Name, Statement)
 
 -- | Generic variable declaration.
 var :: AllE a => Name -> a -> Filter (V a)
