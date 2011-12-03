@@ -50,10 +50,10 @@ type GraphInfo = (TypeSig, Name, StreamNode)
 
 findDefs :: StreamNode -> ([FilterInfo], [GraphInfo])
 findDefs a = case a of
-  AddF a b c     -> ([(a, b, filterInfo c)],[])
-  AddN a b c     -> (fst fc, snd fc ++ [(a, b, graphInfo c)])
+  AddF a b c     -> ([(a, b, snd $ evalStmt 0 c)],[])
+  AddN a b c     -> (fst fc, snd fc ++ [(a, b, snd $ evalStream 0 c)])
     where
-      fc = findDefs (graphInfo c)
+      fc = findDefs (snd $ evalStream 0 c)
   Pipeline a     -> findDefs a
   Chain a b      -> (noob $ fst fa ++ fst fb, noob' $ snd fa ++ snd fb)
     where
@@ -61,12 +61,6 @@ findDefs a = case a of
       fb = findDefs b
   Empty          -> ([],[])
   where
-    filterInfo :: Filter () -> Statement
-    filterInfo c = snd (evalStmt 0 c)
-
-    graphInfo :: StreamIt () -> StreamNode
-    graphInfo n = snd (evalStream 0 n)
-
     noob :: [FilterInfo] -> [FilterInfo]
     noob a = nubBy (\xs ys -> name xs == name ys) a
       where name (_, n, _) = n
