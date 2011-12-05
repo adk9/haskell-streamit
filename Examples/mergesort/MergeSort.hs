@@ -41,4 +41,6 @@ mergeSort = pipeline $ do
   add "int->void" "IntPrinter" intPrinter
 
 main :: IO ()
-main = runStreamIt "void->void" "MergeSort" mergeSort
+main = do
+  genStreamIt "void->void" "MergeSort" mergeSort
+  return ()

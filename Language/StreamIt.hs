@@ -66,6 +66,7 @@ module Language.StreamIt
   , pipeline
   -- * Code Generation
   , compileStreamIt
+  , genStreamIt
   , runStreamIt
   ) where
 
@@ -85,9 +86,15 @@ import Language.Haskell.TH.Lift.Extras
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
 $(deriveLiftAbstract ''ByteString 'B.pack 'B.unpack)
 
+genStreamIt :: TypeSig -> Name -> StreamIt () -> IO (FilePath)
+genStreamIt ty name s = do
+  fp <- code ty name $ snd (evalStream 0 s)
+  putStrLn $ "Generate file " ++ fp ++ "."
+  return fp
+
 compileStreamIt :: TypeSig -> Name -> StreamIt () -> Q Exp
 compileStreamIt ty name s = do
-  f <- liftIO $ code ty name $ snd (evalStream 0 s)
+  f <- liftIO $ genStreamIt ty name s
   bs <- liftIO $ compileStrc f  
   [|(B.pack $(lift (B.unpack bs)))|]
 

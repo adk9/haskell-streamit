@@ -24,6 +24,6 @@ dist/
 
 # Project-specific files #
 ##########################
-Examples/myFir
-Examples/HelloWorld
-Examples/MergeSort
+Examples/hello/Main
+Examples/mergesort/MergeSort
+Examples/mergesort/Main
