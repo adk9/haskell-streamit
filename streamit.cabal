@@ -35,10 +35,16 @@ library
     Language.StreamIt.Filter
     Language.StreamIt.Graph
     Language.StreamIt.Code
+    Language.StreamIt.Compile
+    Language.Haskell.TH.Lift.Extras
 
   build-depends:
     base >= 4.0     && < 5,
-    mtl  >= 1.1.0.1 && < 2.1
+    mtl  >= 1.1.0.1 && < 2.1,
+    temporary >= 1.0 && < 1.2,
+    process, directory,
+    bytestring, th-lift,
+    unix, template-haskell
 
   extensions:
     EmptyDataDecls
@@ -52,6 +58,7 @@ library
     Rank2Types
     ScopedTypeVariables
     StandaloneDeriving
+    TemplateHaskell
     TypeFamilies
     TypeOperators
     TypeSynonymInstances

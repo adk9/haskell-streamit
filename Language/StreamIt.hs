@@ -65,15 +65,31 @@ module Language.StreamIt
   , add'
   , pipeline
   -- * Code Generation
+  , compileStreamIt
   , runStreamIt
   ) where
 
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
+import Data.Word
+import Control.Monad.Trans (MonadIO(..))
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
 import Language.StreamIt.Graph
 import Language.StreamIt.Code
+import Language.StreamIt.Compile
+import Language.Haskell.TH hiding (Name)
+import Language.Haskell.TH.Syntax hiding (Name)
+import Language.Haskell.TH.Lift.Extras
 
-runStreamIt :: TypeSig -> Name -> StreamIt () -> IO ()
-runStreamIt ty name s = (code ty name) node
-  where
-    (_, node) = evalStream 0 s
+$(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
+$(deriveLiftAbstract ''ByteString 'B.pack 'B.unpack)
+
+compileStreamIt :: TypeSig -> Name -> StreamIt () -> Q Exp
+compileStreamIt ty name s = do
+  f <- liftIO $ code ty name $ snd (evalStream 0 s)
+  bs <- liftIO $ compileStrc f  
+  [|(B.pack $(lift (B.unpack bs)))|]
+
+instance MonadIO Q where
+  liftIO = runIO

@@ -11,12 +11,13 @@ indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
 -- | Generate StreamIt.
-code :: TypeSig -> Name -> StreamNode -> IO ()
+code :: TypeSig -> Name -> StreamNode -> IO (FilePath)
 code ty name node = do
   writeFile (name ++ ".str") $
     (intercalate "\n\n" $ map codeFilter fs)
     ++ "\n" ++ (intercalate "\n\n" $ map codeNode gs)
     ++ "\n" ++ codeNode (ty, name, node) ++ "\n"
+  return (name ++ ".str")
   where
     (fs, gs) = findDefs node
 
