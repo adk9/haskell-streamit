@@ -22,7 +22,6 @@ code ty name node = do
 
 codeNode :: (TypeSig, Name, StreamNode) -> String
 codeNode (ty, name, sn) = case sn of
-  AddF _ n _      -> "add " ++ n ++ "();\n"
   AddN _ n _      -> "add " ++ n ++ "();\n"
   Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
                      ++ (indent $ codeNode (ty, name, a)) ++ "}\n"

@@ -5,7 +5,6 @@ module Language.StreamIt.Graph
   , evalStream
   , findDefs
   , add
-  , add'
   , pipeline
   ) where
 
@@ -16,11 +15,10 @@ import Language.StreamIt.Core
 import Language.StreamIt.Filter
 
 data StreamNode where
+  AddN     :: AddE a => TypeSig -> Name -> a -> StreamNode
+  Pipeline :: StreamNode -> StreamNode
   Chain    :: StreamNode -> StreamNode -> StreamNode
   Empty    :: StreamNode
-  AddF     :: TypeSig -> Name -> Filter () -> StreamNode
-  AddN     :: TypeSig -> Name -> StreamIt () -> StreamNode
-  Pipeline :: StreamNode -> StreamNode
 
 -- | The StreamIt monad holds the StreamIt graph.
 data StreamIt a = StreamIt ((Int, StreamNode) -> (a, (Int, StreamNode)))
@@ -46,34 +44,19 @@ get = StreamIt $ \ a -> (a, a)
 put :: (Int, StreamNode) -> StreamIt ()
 put s = StreamIt $ \ _ -> ((), s)
 
-type GraphInfo = (TypeSig, Name, StreamNode)
+class AddE a where
+  add :: TypeSig -> Name -> a -> StreamIt ()
+  info :: TypeSig -> Name -> a -> ([FilterInfo], [GraphInfo])
 
-findDefs :: StreamNode -> ([FilterInfo], [GraphInfo])
-findDefs a = case a of
-  AddF a b c     -> ([(a, b, snd $ evalStmt 0 c)],[])
-  AddN a b c     -> (fst fc, snd fc ++ [(a, b, snd $ evalStream 0 c)])
+instance AddE (Filter ()) where
+  add  a b c = addNode $ AddN a b c
+  info a b c = ([(a, b, snd $ evalStmt 0 c)],[])
+
+instance AddE (StreamIt ()) where
+  add  a b c = addNode $ AddN a b c
+  info a b c = (fst fc, snd fc ++ [(a, b, snd $ evalStream 0 c)])
     where
-      fc = findDefs (snd $ evalStream 0 c)
-  Pipeline a     -> findDefs a
-  Chain a b      -> (noob $ fst fa ++ fst fb, noob' $ snd fa ++ snd fb)
-    where
-      fa = findDefs a
-      fb = findDefs b
-  Empty          -> ([],[])
-  where
-    noob :: [FilterInfo] -> [FilterInfo]
-    noob a = nubBy (\xs ys -> name xs == name ys) a
-      where name (_, n, _) = n
-
-    noob' :: [GraphInfo] -> [GraphInfo]
-    noob' a = nubBy (\xs ys -> name xs == name ys) a
-      where name (_, n, _) = n
-
-add :: TypeSig -> Name -> Filter () -> StreamIt ()
-add ty name filt = addNode $ AddF ty name filt
-
-add' :: TypeSig -> Name -> StreamIt () -> StreamIt ()
-add' ty name node = addNode $ AddN ty name node
+      fc = info a b c
 
 pipeline :: StreamIt () -> StreamIt ()
 pipeline n = do
@@ -81,3 +64,19 @@ pipeline n = do
   let (id1, node1) = evalStream id0 n
   put (id1, node)
   addNode $ Pipeline node1
+
+type GraphInfo = (TypeSig, Name, StreamNode)
+
+instance DeclE GraphInfo where
+  noob a = nubBy (\xs ys -> name xs == name ys) a
+    where name (_, n, _) = n
+
+findDefs :: StreamNode -> ([FilterInfo], [GraphInfo])
+findDefs a = case a of
+  AddN a b c     -> info a b c
+  Pipeline a     -> findDefs a
+  Chain a b      -> (noob $ fst fa ++ fst fb, noob $ snd fa ++ snd fb)
+    where
+      fa = findDefs a
+      fb = findDefs b
+  Empty          -> ([],[])

@@ -38,7 +38,7 @@ sorter = pipeline $ do
 mergeSort :: StreamIt ()
 mergeSort = pipeline $ do
   add "void->int" "SortInput" sortInput
-  add' "int->int" "Sorter" sorter
+  add "int->int" "Sorter" sorter
   add "int->void" "IntPrinter" intPrinter
 
 main :: IO ()

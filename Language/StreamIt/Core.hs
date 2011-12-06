@@ -1,6 +1,7 @@
 module Language.StreamIt.Core
   ( E (..)
   , V (..)
+  , DeclE (..)
   , TypeSig
   , Name
   , AllE (..)
@@ -191,3 +192,7 @@ mod_ a b = Mod a b
 -- | References a variable to be used in an expression ('E').
 ref :: AllE a => V a -> E a
 ref = Ref
+
+-- | To check if two declarations are the same
+class DeclE a where
+  noob :: [a] -> [a]

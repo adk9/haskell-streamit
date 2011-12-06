@@ -27,7 +27,9 @@ module Language.StreamIt.Filter
   , (==>)
   ) where
 
+import Data.List
 import Control.Monad
+
 import Language.StreamIt.Core
 
 infixr 0 <==, ==>
@@ -70,6 +72,10 @@ put :: (Int, Statement) -> Filter ()
 put s = Filter $ \ _ -> ((), s)
 
 type FilterInfo = (TypeSig, Name, Statement)
+
+instance DeclE FilterInfo where
+  noob a = nubBy (\xs ys -> name xs == name ys) a
+    where name (_, n, _) = n
 
 -- | Generic variable declaration.
 var :: AllE a => Bool -> Name -> a -> Filter (V a)
