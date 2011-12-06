@@ -56,7 +56,7 @@ instance AddE (StreamIt ()) where
   add  a b c = addNode $ AddN a b c
   info a b c = (fst fc, snd fc ++ [(a, b, snd $ evalStream 0 c)])
     where
-      fc = info a b c
+      fc = findDefs (snd $ evalStream 0 c)
 
 pipeline :: StreamIt () -> StreamIt ()
 pipeline n = do
