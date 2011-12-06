@@ -5,9 +5,10 @@ import Language.StreamIt
 
 sortInput :: Filter ()
 sortInput = do
-  work (1, 0, 0) $ do
+  n <- input int "N"
+  work (ref n, 0, 0) $ do
     x <- int' "x" 0
-    push $ ref x
+    push $ ref n
 
 intPrinter :: Filter ()
 intPrinter = do

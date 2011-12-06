@@ -1,8 +1,8 @@
-void->int filter SortInput()
+void->int filter SortInput(int N)
 {
-	work push 1 {
+	work push N {
 		int x = 0;
-		push(x);
+		push(N);
 	}
 }
 

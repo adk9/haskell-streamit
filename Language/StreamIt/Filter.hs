@@ -4,6 +4,7 @@ module Language.StreamIt.Filter
   , Filter (..)
   , FilterInfo
   , var
+  , input
   , float
   , float'
   , int
@@ -32,7 +33,7 @@ import Language.StreamIt.Core
 infixr 0 <==, ==>
 
 data Statement where
-  Decl     :: AllE a => V a -> Maybe a -> Statement
+  Decl     :: AllE a => V a -> Statement
   Assign   :: AllE a => V a -> E a -> Statement
   Branch   :: E Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
@@ -71,41 +72,35 @@ put s = Filter $ \ _ -> ((), s)
 type FilterInfo = (TypeSig, Name, Statement)
 
 -- | Generic variable declaration.
-var :: AllE a => Name -> a -> Filter (V a)
-var name init = do
+var :: AllE a => Bool -> Name -> a -> Filter (V a)
+var input name init = do
   (id, stmt) <- get
-  put (id, Sequence stmt $ Decl (V name) (Just init))
-  return $ V name
+  put (id, Sequence stmt $ Decl (V input name init))
+  return $ V input name init
+
+input :: AllE a => (Name -> Filter (V a)) -> Name -> Filter (V a)
+input _ name = var True name zero
 
 -- | Float variable declaration.
 float :: Name -> Filter (V Float)
-float name = do
-  (id, stmt) <- get
-  put (id, Sequence stmt $ Decl (V name::V Float) Nothing)
-  return $ V name
+float name = var False name zero
 
 float' :: Name -> Float -> Filter (V Float)
-float' = var
+float' = var False
 
 -- | Int variable declaration.
 int :: Name -> Filter (V Int)
-int name = do
-  (id, stmt) <- get
-  put (id, Sequence stmt $ Decl (V name::V Int) Nothing)
-  return $ V name
+int name = var False name zero
 
 int' :: Name -> Int -> Filter (V Int)
-int' = var
+int' = var False
 
 -- | Bool variable declaration.
 bool :: Name -> Filter (V Bool)
-bool name = do
-  (id, stmt) <- get
-  put (id, Sequence stmt $ Decl (V name::V Bool) Nothing)
-  return $ V name
+bool name = var False name zero
 
 bool' :: Name -> Bool -> Filter (V Bool)
-bool' = var
+bool' = var False
 
 -- | Increments an E Int.
 incr :: V Int -> Filter ()
@@ -129,7 +124,7 @@ pop = statement $ Pop
 
 -- | Pop'
 pop' :: E Int
-pop' = Ref (V "pop()")
+pop' = Ref (V False "pop()" zero)
 
 -- | Println
 println :: AllE a => E a -> Filter ()

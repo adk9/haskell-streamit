@@ -25,5 +25,6 @@ dist/
 # Project-specific files #
 ##########################
 Examples/hello/Main
+Examples/hello/HelloWorld.java
 Examples/mergesort/MergeSort
 Examples/mergesort/Main

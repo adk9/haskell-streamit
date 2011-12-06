@@ -29,7 +29,6 @@ module Language.StreamIt.Core
   ) where
 
 import Data.Ratio
-import Data.Typeable
 
 --infixl 9 !, !.
 infixl 7 *., /., `div_`, `mod_`
@@ -43,12 +42,12 @@ type Name = String
 
 -- | A mutable variable.
 data V a
-  = V Name
-  deriving (Eq, Typeable)
+  = V Bool Name a
+  deriving Eq
 
-instance Show (V a) where show (V n) = n
+instance Show (V a) where show (V _ n _) = n
 
-class (Eq a, Typeable a) => AllE a where
+class Eq a => AllE a where
   zero   :: a
   const' :: a -> Const
 

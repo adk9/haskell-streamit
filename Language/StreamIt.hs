@@ -39,6 +39,7 @@ module Language.StreamIt
   , Filter
   -- ** Variable Declarations
   , var
+  , input
   , float
   , float'
   , int
