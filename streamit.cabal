@@ -44,7 +44,7 @@ library
     temporary >= 1.0 && < 1.2,
     process, directory,
     bytestring, th-lift,
-    unix, template-haskell
+    unix, zlib, template-haskell
 
   extensions:
     EmptyDataDecls
