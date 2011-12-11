@@ -75,17 +75,18 @@ codeStmt name a = case a of
                       ++ showFlowRate " peek " c
                       ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
   Push a           -> "push(" ++ codeExpr a ++ ");\n"
-  Pop              -> "pop();\n"
+  Pop              -> codeStmtExpr a ++ ";\n"
   Peek a           -> "peek(" ++ show a ++ ");\n"
-  Println a        -> "println(" ++ codeExpr a ++ ");\n"
+  Println a        -> "println(" ++ codeStmtExpr a ++ ");\n"
   Null             -> ""
   where
     codeStmtExpr :: Statement -> String
     codeStmtExpr a = case a of
       Assign a b     -> show a ++ " = " ++ codeExpr b
       Sequence a b   -> codeStmtExpr a ++ codeStmtExpr b
+      Pop	     -> "pop()"
       Null	     -> ""
-      
+
     codeExpr :: E a -> String
     codeExpr a = case a of
       Ref a     -> show a
@@ -107,7 +108,7 @@ codeStmt name a = case a of
       where
         group :: [String] -> String
         group a = "(" ++ intercalate " " a ++ ")"
-    
+
     showFlowRate :: String -> E Int -> String
     showFlowRate token a = case a of
       Const 0 -> ""

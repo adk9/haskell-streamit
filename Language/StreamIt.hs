@@ -49,7 +49,6 @@ module Language.StreamIt
   , push
   , peek
   , pop
-  , pop'
   , println
   , work
   , init'
@@ -90,7 +89,7 @@ $(deriveLiftAbstract ''ByteString 'B.pack 'B.unpack)
 genStreamIt :: TypeSig -> Name -> StreamIt () -> IO (FilePath)
 genStreamIt ty name s = do
   fp <- code ty name $ snd (evalStream 0 s)
-  putStrLn $ "Generate file " ++ fp ++ "."
+  putStrLn $ "Generated file " ++ fp ++ "."
   return fp
 
 compileStreamIt :: TypeSig -> Name -> StreamIt () -> Q Exp

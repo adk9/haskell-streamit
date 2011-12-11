@@ -14,7 +14,6 @@ module Language.StreamIt.Filter
   , push
   , peek
   , pop
-  , pop'
   , incr
   , decr
   , println
@@ -46,7 +45,7 @@ data Statement where
   Push     :: AllE a => E a -> Statement
   Pop      :: Statement
   Peek     :: V Int -> Statement
-  Println  :: AllE a => E a -> Statement
+  Println  :: Statement -> Statement
   Null     :: Statement
 
 -- | The Filter monad holds StreamIt filter statements.
@@ -66,6 +65,9 @@ statement a = Filter $ \ (id, statement) -> ((), (id, Sequence statement a))
 
 evalStmt :: Int -> Filter () -> (Int, Statement)
 evalStmt id (Filter f) = snd $ f (id, Null)
+
+evalStmt':: Filter () -> Statement 
+evalStmt' f = snd (evalStmt 0 f)
 
 get :: Filter (Int, Statement)
 get = Filter $ \ a -> (a, a)
@@ -130,13 +132,9 @@ peek a = statement $ Peek a
 pop :: Filter ()
 pop = statement $ Pop
 
--- | Pop'
-pop' :: E Int
-pop' = Ref (V False "pop()" zero)
-
 -- | Println
-println :: AllE a => E a -> Filter ()
-println a = statement $ Println a
+println :: Filter () -> Filter ()
+println f = statement $ Println (evalStmt' f)
 
 -- | Init
 init' :: Filter () -> Filter ()
@@ -186,7 +184,7 @@ a ==> s = Case $ ifelse a s
 -- | For loop.
 for_ :: (Filter (), E Bool, Filter ()) -> Filter () -> Filter ()
 for_ (init, cond, inc) body = do
-  let (_, stmt1) = evalStmt 0 init
-      (_, stmt2) = evalStmt 0 inc
-      (_, stmt3) = evalStmt 0 body
-  statement $ Loop stmt1 cond stmt2 stmt3
+  (id0, stmt) <- get
+  let (id1, stmt1) = evalStmt id0 body
+  put (id1, stmt)
+  statement $ Loop (evalStmt' init) cond (evalStmt' inc) stmt1
