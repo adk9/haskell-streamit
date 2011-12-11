@@ -8,7 +8,7 @@ sortInput = do
   n <- input int "N"
   work (ref n, 0, 0) $ do
     i <- int "i"
-    for_ (i <== 0, ref i <. ref n, incr i) $ do
+    for_  (i <== 0, ref i <. ref n, incr i) $ do
       push $ ref n - ref i
 
 intPrinter :: Filter ()
@@ -16,6 +16,7 @@ intPrinter = do
   work (0, 1, 0) $ do
     println $ pop'
 
+{--
 merger :: Filter ()
 merger = do
   n <- input int "N"
@@ -41,10 +42,10 @@ merger = do
       (leftover <== ref index1)
       (leftover <== ref index2)
       i <- int "i"
-      for_ (i <== ref leftover, ref i <. ref n, i <== ref i + 2) $ do
+      for_ i <== ref leftover $ ref i <. ref n $ i <== ref i + 2 $ do
         push $ peek i
 
-    for_ (i <== 0, ref i <. ref n, incr i) $ pop
+    for_ $ i <== 0 $ ref i <. ref n $ incr i $ pop
 
 sorter :: StreamIt ()
 sorter = pipeline $ do
@@ -57,14 +58,16 @@ sorter = pipeline $ do
         join roundrobin
 
     add "int->int" "Merger" merger [ref n]
+--}
     
 mergeSort :: StreamIt ()
 mergeSort = pipeline $ do
-  numInputs <- int' "NUM_INPUTS" 16
-  mult <- int' "MULT" 4
+--  numInputs <- int' "NUM_INPUTS" 16
+--  mult <- int' "MULT" 4
 
-  add "void->int" "SortInput"  sortInput [ref numInputs /. ref mult]
-  add "int->int"  "Sorter"     sorter [ref numInputs]
+  -- add "void->int" "SortInput"  sortInput [ref numInputs /. ref mult]
+  -- add "int->int"  "Sorter"     sorter [ref numInputs]
+  add "void->int" "SortInput"  sortInput
   add "int->void" "IntPrinter" intPrinter
 
 main :: IO ()

@@ -25,6 +25,7 @@ module Language.StreamIt.Filter
   , if_
   , case_
   , (==>)
+  , for_
   ) where
 
 import Data.List
@@ -38,6 +39,7 @@ data Statement where
   Decl     :: AllE a => V a -> Statement
   Assign   :: AllE a => V a -> E a -> Statement
   Branch   :: E Bool -> Statement -> Statement -> Statement
+  Loop     :: Statement -> E Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
   Work     :: (E Int, E Int, E Int) -> Statement -> Statement
   Init     :: Statement -> Statement
@@ -180,3 +182,11 @@ instance Monad Case where
 
 (==>) :: E Bool -> Filter () -> Case ()
 a ==> s = Case $ ifelse a s
+
+-- | For loop.
+for_ :: (Filter (), E Bool, Filter ()) -> Filter () -> Filter ()
+for_ (init, cond, inc) body = do
+  let (_, stmt1) = evalStmt 0 init
+      (_, stmt2) = evalStmt 0 inc
+      (_, stmt3) = evalStmt 0 body
+  statement $ Loop stmt1 cond stmt2 stmt3

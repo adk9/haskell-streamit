@@ -60,6 +60,7 @@ module Language.StreamIt
   , if_
   , case_
   , (==>)
+  , for_
   , StreamIt
   -- * Stream Graph Constructs
   , add
