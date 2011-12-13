@@ -70,8 +70,8 @@ module Language.StreamIt
   , runStreamIt
   ) where
 
-import Data.ByteString (ByteString)
-import qualified Data.ByteString as B
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as L
 import Data.Word
 import Control.Monad.Trans (MonadIO(..))
 import Language.StreamIt.Core
@@ -84,7 +84,7 @@ import Language.Haskell.TH.Syntax hiding (Name)
 import Language.Haskell.TH.Lift.Extras
 
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
-$(deriveLiftAbstract ''ByteString 'B.pack 'B.unpack)
+$(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 
 genStreamIt :: TypeSig -> Name -> StreamIt () -> IO (FilePath)
 genStreamIt ty name s = do
@@ -96,7 +96,7 @@ compileStreamIt :: TypeSig -> Name -> StreamIt () -> Q Exp
 compileStreamIt ty name s = do
   f <- liftIO $ genStreamIt ty name s
   bs <- liftIO $ compileStrc f  
-  [|(B.pack $(lift (B.unpack bs)))|]
+  [|(L.pack $(lift (L.unpack bs)))|]
 
 instance MonadIO Q where
   liftIO = runIO

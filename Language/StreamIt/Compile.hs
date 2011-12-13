@@ -6,7 +6,8 @@ module Language.StreamIt.Compile
 -- import qualified Data.ByteString as B
 import Control.Monad.State
 import Control.Exception
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import Codec.Compression.GZip
 import System.Cmd
 import System.Exit
 import System.Directory
@@ -15,7 +16,7 @@ import System.IO.Temp
 import System.Posix.Files
 import System.Posix.Process
 
-compileStrc :: FilePath -> IO (B.ByteString)
+compileStrc :: FilePath -> IO (L.ByteString)
 compileStrc file = do
   withTempDirectory "." "streamit." $ \tdir -> do
     bracket getCurrentDirectory setCurrentDirectory
@@ -23,13 +24,14 @@ compileStrc file = do
           setCurrentDirectory tdir
           exitCode <- rawSystem "strc" ["../" ++ file]
           when (exitCode /= ExitSuccess) $
-            fail "strc failed."
-          B.readFile "a.out")
+            fail "strc faied."
+          bs <- L.readFile "a.out"
+          return $ compress bs)
 
-runStreamIt :: B.ByteString -> IO ()
+runStreamIt :: L.ByteString -> IO ()
 runStreamIt bs = do
   (tf, th) <- openBinaryTempFile "." "streamit"
-  B.hPut th bs
+  L.hPut th (decompress bs)
   setFileMode tf ownerExecuteMode
   hClose th
   pid <- forkProcess $ executeFile tf False [] Nothing
