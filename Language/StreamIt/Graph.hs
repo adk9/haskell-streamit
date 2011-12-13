@@ -6,6 +6,7 @@ module Language.StreamIt.Graph
   , findDefs
   , add
   , pipeline
+  , splitjoin
   ) where
 
 import Data.List
@@ -15,10 +16,11 @@ import Language.StreamIt.Core
 import Language.StreamIt.Filter
 
 data StreamNode where
-  AddN     :: AddE a => TypeSig -> Name -> a -> StreamNode
-  Pipeline :: StreamNode -> StreamNode
-  Chain    :: StreamNode -> StreamNode -> StreamNode
-  Empty    :: StreamNode
+  AddN      :: AddE a => TypeSig -> Name -> a -> StreamNode
+  Pipeline  :: StreamNode -> StreamNode
+  SplitJoin :: StreamNode -> StreamNode
+  Chain     :: StreamNode -> StreamNode -> StreamNode
+  Empty     :: StreamNode
 
 -- | The StreamIt monad holds the StreamIt graph.
 data StreamIt a = StreamIt ((Int, StreamNode) -> (a, (Int, StreamNode)))
@@ -65,6 +67,13 @@ pipeline n = do
   put (id1, node)
   addNode $ Pipeline node1
 
+splitjoin :: StreamIt () -> StreamIt ()
+splitjoin n = do
+  (id0, node) <- get
+  let (id1, node1) = evalStream id0 n
+  put (id1, node)
+  addNode $ SplitJoin node1
+
 type GraphInfo = (TypeSig, Name, StreamNode)
 
 instance DeclE GraphInfo where
@@ -75,6 +84,7 @@ findDefs :: StreamNode -> ([FilterInfo], [GraphInfo])
 findDefs a = case a of
   AddN a b c     -> info a b c
   Pipeline a     -> findDefs a
+  SplitJoin a    -> findDefs a
   Chain a b      -> (noob $ fst fa ++ fst fb, noob $ snd fa ++ snd fb)
     where
       fa = findDefs a

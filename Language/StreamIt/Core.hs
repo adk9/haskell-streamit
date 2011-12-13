@@ -68,6 +68,10 @@ class    AllE a => NumE a
 instance NumE Int
 instance NumE Float
 
+-- | To check if two declarations are the same
+class DeclE a where
+  noob :: [a] -> [a]
+
 -- | A logical, arithmetic, comparative, or conditional expression.
 data E a where
   Ref   :: AllE a => V a -> E a
@@ -192,7 +196,3 @@ mod_ a b = Mod a b
 -- | References a variable to be used in an expression ('E').
 ref :: AllE a => V a -> E a
 ref = Ref
-
--- | To check if two declarations are the same
-class DeclE a where
-  noob :: [a] -> [a]

@@ -50,24 +50,22 @@ merger = do
 sorter :: StreamIt ()
 sorter = pipeline $ do
   n <- input int "N"
-  if (ref n >. 2) $ do
-    addFilter splitjoin $ do
-      split roundrobin
-        add "int->int"  "Sorter" sorter [ref n /. 2]
-        add "int->int"  "Sorter" sorter [ref n /. 2]
-        join roundrobin
+  if_ (ref n >. 2) $ splitjoin $ do
+    split roundrobin
+    add "int->int"  "Sorter" sorter [ref n /. 2]
+    add "int->int"  "Sorter" sorter [ref n /. 2]
+    join roundrobin
 
     add "int->int" "Merger" merger [ref n]
 --}
-    
+
 mergeSort :: StreamIt ()
 mergeSort = pipeline $ do
---  numInputs <- int' "NUM_INPUTS" 16
---  mult <- int' "MULT" 4
+  numInputs <- int' "NUM_INPUTS" 16
+  mult <- int' "MULT" 4
 
-  -- add "void->int" "SortInput"  sortInput [ref numInputs /. ref mult]
-  -- add "int->int"  "Sorter"     sorter [ref numInputs]
-  add "void->int" "SortInput"  sortInput
+  add "void->int" "SortInput"  sortInput [ref numInputs /. ref mult]
+--  add "int->int"  "Sorter"     sorter [ref numInputs]
   add "int->void" "IntPrinter" intPrinter
 
 main :: IO ()

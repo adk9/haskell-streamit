@@ -26,6 +26,8 @@ codeNode (ty, name, sn) = case sn of
   AddN _ n _      -> "add " ++ n ++ "();\n"
   Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
                      ++ (indent $ codeNode (ty, name, a)) ++ "}\n"
+  SplitJoin a     -> ty ++ " splitjoin " ++ name ++ " {\n"
+                     ++ (indent $ codeNode (ty, name, a)) ++ "}\n"
   Chain a b       -> codeNode (ty, name, a) ++ codeNode (ty, name, b)
   Empty           -> ""
 

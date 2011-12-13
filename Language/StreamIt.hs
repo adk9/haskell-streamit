@@ -64,6 +64,7 @@ module Language.StreamIt
   -- * Stream Graph Constructs
   , add
   , pipeline
+  , splitjoin
   -- * Code Generation
   , compileStreamIt
   , genStreamIt
