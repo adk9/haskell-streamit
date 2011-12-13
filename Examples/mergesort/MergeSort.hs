@@ -14,7 +14,7 @@ sortInput = do
 intPrinter :: Filter ()
 intPrinter = do
   work (0, 1, 0) $ do
-    println $ pop'
+    println $ pop
 
 {--
 merger :: Filter ()
