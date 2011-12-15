@@ -1,3 +1,4 @@
 A StreamIt EDSL in Haskell
- 
-[github.com/adk9/streamit-edsl](github.com/adk9/streamit-edsl)
+
+See Haddock for the generated documentation:
+[http://adk9.github.com/haskell-streamit/](http://adk9.github.com/haskell-streamit/)
