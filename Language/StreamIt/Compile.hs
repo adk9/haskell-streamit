@@ -16,6 +16,7 @@ import System.IO.Temp
 import System.Posix.Files
 import System.Posix.Process
 
+-- | Takes a StreamIt file, compiles it and returns the resulting executable as a ByteString
 compileStrc :: FilePath -> IO (L.ByteString)
 compileStrc file = do
   withTempDirectory "." "streamit." $ \tdir -> do
@@ -28,6 +29,7 @@ compileStrc file = do
           bs <- L.readFile "a.out"
           return $ compress bs)
 
+-- | Runs a StreamIt executable (stored as ByteString) at runtime
 runStreamIt :: L.ByteString -> IO ()
 runStreamIt bs = do
   (tf, th) <- openBinaryTempFile "." "streamit"
