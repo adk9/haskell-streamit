@@ -1,14 +1,14 @@
-name:           streamit
-version:        0.1
+name:           haskell-streamit
+version:        0.2
 synopsis: 	A StreamIt EDSL in Haskell.
-description: 	StreamIt (http://groups.csail.mit.edu/cag/streamit/) is a
+description: 	StreamIt (<http://groups.csail.mit.edu/cag/streamit/>) is a
 		stream programming language designed for efficient execution
 		of large streaming applications. The StreamIt runtime system
-		allows executing these stream on a variety of target
-		architectures, including multicore machines and clusters of
-		COTS workstations. With this StreamIt embedded DSL, any
-		Haskell function can be used to generate a computation kernel
-		in the stream graph.
+		allows executing stream programs on a variety of target
+		architectures, including multicore machines and cluster of
+		COTS workstations. This is a shallow-embedding of StreamIt in
+                Haskell which invokes the StreamIt compiler to generate a 
+                a stream graph from the haskell-streamit EDSL program.
 copyright: 	Copyright (c) 2011 Abhishek Kulkarni
 author:		Abhishek Kulkarni <adkulkar@indiana.edu>
 maintainer:	Abhishek Kulkarni <adkulkar@indiana.edu>
