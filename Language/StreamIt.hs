@@ -46,12 +46,6 @@ module Language.StreamIt
   , int'
   , bool
   , bool'
-  , push
-  , peek
-  , pop
-  , println
-  , work
-  , init'
   -- ** Variable Assignment
   , Assign (..)
   -- ** Conditional Execution
@@ -59,13 +53,24 @@ module Language.StreamIt
   , if_
   , case_
   , (==>)
+  -- ** Iteration
   , for_
+  -- * StreamIt Statements
   , StreamIt
-  -- * Stream Graph Constructs
+  -- ** StreamIt Flow-rate Primitives
+  , push
+  , peek
+  , pop
+  -- ** StreamIt I/O
+  , println
+  -- ** StreamIt Work Functions
+  , work
+  , init'
+  -- ** StreamIt Aggregate Filters
   , add
   , pipeline
   , splitjoin
-  -- * Code Generation
+  -- * StreamIt Code Generation
   , compileStreamIt
   , genStreamIt
   , runStreamIt
