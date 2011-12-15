@@ -1,6 +1,5 @@
 module HelloWorld (helloWorld) where
 
-import Control.Monad
 import Language.StreamIt
 
 intSource :: Filter ()

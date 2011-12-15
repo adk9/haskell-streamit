@@ -15,7 +15,6 @@ The following program defines a simple Hello World StreamIt program that increme
 
     module HelloWorld (helloWorld) where
 
-    import Control.Monad
     import Language.StreamIt
 
     intSource :: Filter ()
