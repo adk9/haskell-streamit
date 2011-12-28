@@ -64,7 +64,7 @@ instance AddE (StreamIt ()) where
     where
       fc = findDefs (snd $ evalStream 0 c)
 
-instance DeclE (StreamIt) where
+instance CoreE (StreamIt) where
   var input name init = do
     (id, stmt) <- get
     put (id, Chain stmt $ DeclS (V input name init))

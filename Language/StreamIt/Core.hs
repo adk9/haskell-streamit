@@ -1,7 +1,7 @@
 module Language.StreamIt.Core
   ( E (..)
   , V (..)
-  , DeclE (..)
+  , CoreE (..)
   , TypeSig
   , Name
   , AllE (..)
@@ -70,7 +70,7 @@ instance NumE Int
 instance NumE Float
 
 -- | Generic variable declarations.
-class Monad a => DeclE a where
+class Monad a => CoreE a where
   var :: AllE b => Bool -> Name -> b -> a (V b)
   input :: AllE b => (Name -> a (V b)) -> Name -> a (V b)
 
