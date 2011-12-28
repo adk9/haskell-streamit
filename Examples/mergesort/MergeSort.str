@@ -16,6 +16,8 @@ int->void filter IntPrinter()
 }
 
 void->void pipeline MergeSort {
+	int NUM_INPUTS = 16;
+	int MULT = 4;
 	add SortInput();
 	add IntPrinter();
 }

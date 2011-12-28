@@ -10,7 +10,7 @@ indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
 -- | Generate StreamIt program.
-code :: TypeSig -> Name -> StreamNode -> IO (FilePath)
+code :: TypeSig -> Name -> StatementS -> IO (FilePath)
 code ty name node = do
   writeFile (name ++ ".str") $
     (intercalate "\n\n" $ map codeFilter fs)
@@ -21,9 +21,13 @@ code ty name node = do
     (fs, gs) = findDefs node
 
 -- | Generate StreamIt code for the aggregate filters.
-codeNode :: (TypeSig, Name, StreamNode) -> String
+codeNode :: (TypeSig, Name, StatementS) -> String
 codeNode (ty, name, sn) = case sn of
-  AddN _ n _      -> "add " ++ n ++ "();\n"
+  DeclS (V inp n v) -> if inp then ""
+                       else showConstType (const' v) ++ " " ++ n ++ " = "
+                            ++ showConst (const' v) ++ ";\n"
+  AssignS a b     -> show a ++ " = " ++ codeExpr b ++ ";"
+  AddS _ n _      -> "add " ++ n ++ "();\n"
   Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
                      ++ (indent $ codeNode (ty, name, a)) ++ "}\n"
   SplitJoin a     -> ty ++ " splitjoin " ++ name ++ " {\n"
@@ -86,35 +90,43 @@ codeStmt name a = case a of
     codeStmtExpr a = case a of
       Assign a b     -> show a ++ " = " ++ codeExpr b
       Sequence a b   -> codeStmtExpr a ++ codeStmtExpr b
+      Push _         -> ""
       Pop	     -> "pop()"
+      Peek _         -> ""
+      Decl _	     -> ""
+      Branch _ _ _   -> ""
+      Loop _ _ _ _   -> ""
+      Init _         -> ""
+      Work _ _       -> ""
+      Println _      -> ""
       Null	     -> ""
-
-    codeExpr :: E a -> String
-    codeExpr a = case a of
-      Ref a     -> show a
-      Const a   -> showConst $ const' a
-      Add a b   -> group [codeExpr a, "+", codeExpr b]
-      Sub a b   -> group [codeExpr a, "-", codeExpr b]
-      Mul a b   -> group [codeExpr a, "*", showConst (const' b)]
-      Div a b   -> group [codeExpr a, "/", showConst (const' b)]
-      Mod a b   -> group [codeExpr a, "%", showConst (const' b)]
-      Not a     -> group ["!", codeExpr a]
-      And a b   -> group [codeExpr a, "&&",  codeExpr b]
-      Or  a b   -> group [codeExpr a, "||",  codeExpr b]
-      Eq  a b   -> group [codeExpr a, "==",  codeExpr b]
-      Lt  a b   -> group [codeExpr a, "<",   codeExpr b]
-      Gt  a b   -> group [codeExpr a, ">",   codeExpr b]
-      Le  a b   -> group [codeExpr a, "<=",  codeExpr b]
-      Ge  a b   -> group [codeExpr a, ">=",  codeExpr b]
-      Mux a b c -> group [codeExpr a, "?", codeExpr b, ":", codeExpr c] 
-      where
-        group :: [String] -> String
-        group a = "(" ++ intercalate " " a ++ ")"
 
     showFlowRate :: String -> E Int -> String
     showFlowRate token a = case a of
       Const 0 -> ""
       _       -> token ++ codeExpr a
+
+codeExpr :: E a -> String
+codeExpr a = case a of
+  Ref a     -> show a
+  Const a   -> showConst $ const' a
+  Add a b   -> group [codeExpr a, "+", codeExpr b]
+  Sub a b   -> group [codeExpr a, "-", codeExpr b]
+  Mul a b   -> group [codeExpr a, "*", showConst (const' b)]
+  Div a b   -> group [codeExpr a, "/", showConst (const' b)]
+  Mod a b   -> group [codeExpr a, "%", showConst (const' b)]
+  Not a     -> group ["!", codeExpr a]
+  And a b   -> group [codeExpr a, "&&",  codeExpr b]
+  Or  a b   -> group [codeExpr a, "||",  codeExpr b]
+  Eq  a b   -> group [codeExpr a, "==",  codeExpr b]
+  Lt  a b   -> group [codeExpr a, "<",   codeExpr b]
+  Gt  a b   -> group [codeExpr a, ">",   codeExpr b]
+  Le  a b   -> group [codeExpr a, "<=",  codeExpr b]
+  Ge  a b   -> group [codeExpr a, ">=",  codeExpr b]
+  Mux a b c -> group [codeExpr a, "?", codeExpr b, ":", codeExpr c] 
+  where
+    group :: [String] -> String
+    group a = "(" ++ intercalate " " a ++ ")"
 
 showConst :: Const -> String
 showConst a = case a of

@@ -47,7 +47,7 @@ module Language.StreamIt
   , bool
   , bool'
   -- ** Variable Assignment
-  , Assign (..)
+  , (<==)
   -- ** Conditional Execution
   , ifelse
   , if_

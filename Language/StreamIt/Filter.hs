@@ -3,14 +3,6 @@ module Language.StreamIt.Filter
   , evalStmt
   , Filter (..)
   , FilterInfo
-  , var
-  , input
-  , float
-  , float'
-  , int
-  , int'
-  , bool
-  , bool'
   , push
   , peek
   , pop
@@ -19,7 +11,6 @@ module Language.StreamIt.Filter
   , println
   , work
   , init'
-  , Assign (..)
   , ifelse
   , if_
   , case_
@@ -27,12 +18,11 @@ module Language.StreamIt.Filter
   , for_
   ) where
 
-import Data.List
 import Control.Monad
 
 import Language.StreamIt.Core
 
-infixr 0 <==, ==>
+infixr 0 ==>
 
 data Statement where
   Decl     :: AllE a => V a -> Statement
@@ -47,6 +37,8 @@ data Statement where
   Peek     :: V Int -> Statement
   Println  :: Statement -> Statement
   Null     :: Statement
+
+instance Eq Statement where (==) _ _ = True
 
 -- | The Filter monad holds StreamIt filter statements.
 data Filter a = Filter ((Int, Statement) -> (a, (Int, Statement)))
@@ -77,40 +69,19 @@ put s = Filter $ \ _ -> ((), s)
 
 type FilterInfo = (TypeSig, Name, Statement)
 
-instance DeclE FilterInfo where
-  noob a = nubBy (\xs ys -> name xs == name ys) a
-    where name (_, n, _) = n
-
--- | Generic variable declaration.
-var :: AllE a => Bool -> Name -> a -> Filter (V a)
-var input name init = do
-  (id, stmt) <- get
-  put (id, Sequence stmt $ Decl (V input name init))
-  return $ V input name init
-
-input :: AllE a => (Name -> Filter (V a)) -> Name -> Filter (V a)
-input _ name = var True name zero
-
--- | Float variable declaration.
-float :: Name -> Filter (V Float)
-float name = var False name zero
-
-float' :: Name -> Float -> Filter (V Float)
-float' = var False
-
--- | Int variable declaration.
-int :: Name -> Filter (V Int)
-int name = var False name zero
-
-int' :: Name -> Int -> Filter (V Int)
-int' = var False
-
--- | Bool variable declaration.
-bool :: Name -> Filter (V Bool)
-bool name = var False name zero
-
-bool' :: Name -> Bool -> Filter (V Bool)
-bool' = var False
+instance DeclE (Filter) where
+  var input name init = do
+    (id, stmt) <- get
+    put (id, Sequence stmt $ Decl (V input name init))
+    return $ V input name init
+  input _ name = var True name zero
+  float name = var False name zero
+  float' = var False
+  int name = var False name zero
+  int' = var False
+  bool name = var False name zero
+  bool' = var False
+  a <== b = statement $ Assign a b
 
 -- | Increments an E Int.
 incr :: V Int -> Filter ()
@@ -151,9 +122,6 @@ work (push, pop, peek) s = do
   let (id1, stmt1) = evalStmt id0 s
   put (id1, stmt)
   statement $ Work (push, pop, peek) stmt1
-
-class Assign a where (<==) :: V a -> E a -> Filter ()
-instance AllE a => Assign a where a <== b = statement $ Assign a b
 
 -- | Conditional if-else.
 ifelse :: E Bool -> Filter () -> Filter () -> Filter ()

@@ -37,6 +37,7 @@ infix  4 ==., /=., <., <=., >., >=.
 infixl 3 &&.
 infixl 2 ||.
 infixr 1 -->
+infixr 0 <==
 
 type TypeSig = String
 type Name = String
@@ -68,9 +69,25 @@ class    AllE a => NumE a
 instance NumE Int
 instance NumE Float
 
--- | To check if two declarations are the same
-class DeclE a where
-  noob :: [a] -> [a]
+-- | Generic variable declarations.
+class Monad a => DeclE a where
+  var :: AllE b => Bool -> Name -> b -> a (V b)
+  input :: AllE b => (Name -> a (V b)) -> Name -> a (V b)
+
+  -- Float variable declarations.
+  float :: Name -> a (V Float)
+  float' :: Name -> Float -> a (V Float)
+
+  -- Int variable declarations.
+  int :: Name -> a (V Int)
+  int' :: Name -> Int -> a (V Int)
+
+  -- Bool variable declarations.
+  bool :: Name -> a (V Bool)  
+  bool' :: Name -> Bool -> a (V Bool)
+
+  -- Assignments.
+  (<==) :: AllE b => V b -> E b -> a ()
 
 -- | A logical, arithmetic, comparative, or conditional expression.
 data E a where
