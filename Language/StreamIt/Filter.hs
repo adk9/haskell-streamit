@@ -69,7 +69,7 @@ put s = Filter $ \ _ -> ((), s)
 
 type FilterInfo = (TypeSig, Name, Statement)
 
-instance DeclE (Filter) where
+instance CoreE (Filter) where
   var input name init = do
     (id, stmt) <- get
     put (id, Sequence stmt $ Decl (V input name init))

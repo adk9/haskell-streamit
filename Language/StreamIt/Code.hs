@@ -14,25 +14,26 @@ code :: TypeSig -> Name -> StatementS -> IO (FilePath)
 code ty name node = do
   writeFile (name ++ ".str") $
     (intercalate "\n\n" $ map codeFilter fs)
-    ++ "\n" ++ (intercalate "\n\n" $ map codeNode gs)
-    ++ "\n" ++ codeNode (ty, name, node) ++ "\n"
+    ++ "\n" ++ (intercalate "\n\n" $ map codeGraph gs)
+    ++ "\n" ++ codeGraph (ty, name, node) ++ "\n"
   return (name ++ ".str")
   where
     (fs, gs) = findDefs node
 
 -- | Generate StreamIt code for the aggregate filters.
-codeNode :: (TypeSig, Name, StatementS) -> String
-codeNode (ty, name, sn) = case sn of
+codeGraph :: (TypeSig, Name, StatementS) -> String
+codeGraph (ty, name, sn) = case sn of
   DeclS (V inp n v) -> if inp then ""
                        else showConstType (const' v) ++ " " ++ n ++ " = "
                             ++ showConst (const' v) ++ ";\n"
   AssignS a b     -> show a ++ " = " ++ codeExpr b ++ ";"
-  AddS _ n _      -> "add " ++ n ++ "();\n"
+  AddS _ n _ args -> "add " ++ n ++ "(" ++ (intercalate ", " $ map codeExpr args)
+                     ++ ");\n"
   Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
-                     ++ (indent $ codeNode (ty, name, a)) ++ "}\n"
+                     ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
   SplitJoin a     -> ty ++ " splitjoin " ++ name ++ " {\n"
-                     ++ (indent $ codeNode (ty, name, a)) ++ "}\n"
-  Chain a b       -> codeNode (ty, name, a) ++ codeNode (ty, name, b)
+                     ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
+  Chain a b       -> codeGraph (ty, name, a) ++ codeGraph (ty, name, b)
   Empty           -> ""
 
 -- | Generate StreamIt code inside a filter.
@@ -112,8 +113,8 @@ codeExpr a = case a of
   Const a   -> showConst $ const' a
   Add a b   -> group [codeExpr a, "+", codeExpr b]
   Sub a b   -> group [codeExpr a, "-", codeExpr b]
-  Mul a b   -> group [codeExpr a, "*", showConst (const' b)]
-  Div a b   -> group [codeExpr a, "/", showConst (const' b)]
+  Mul a b   -> group [codeExpr a, "*", codeExpr b]
+  Div a b   -> group [codeExpr a, "/", codeExpr b]
   Mod a b   -> group [codeExpr a, "%", showConst (const' b)]
   Not a     -> group ["!", codeExpr a]
   And a b   -> group [codeExpr a, "&&",  codeExpr b]

@@ -31,9 +31,6 @@ module Language.StreamIt
   , (>.)
   , (>=.)
   -- ** Arithmetic Operations
-  , (*.)
-  , (/.)
-  , div_
   , mod_
   -- * Statements
   , Filter
@@ -68,6 +65,7 @@ module Language.StreamIt
   , init'
   -- ** StreamIt Aggregate Filters
   , add
+  , add'
   , pipeline
   , splitjoin
   -- * StreamIt Code Generation

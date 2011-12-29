@@ -4,6 +4,7 @@ module Language.StreamIt.Graph
   , GraphInfo
   , evalStream
   , findDefs
+  , add'
   , add
   , pipeline
   , splitjoin
@@ -18,7 +19,7 @@ import Language.StreamIt.Filter
 data StatementS where
   DeclS     :: AllE a => V a -> StatementS
   AssignS   :: AllE a => V a -> E a -> StatementS
-  AddS      :: AddE a => TypeSig -> Name -> a -> StatementS
+  AddS      :: (AddE a, AllE b) => TypeSig -> Name -> a -> [E b] -> StatementS
   Pipeline  :: StatementS -> StatementS
   SplitJoin :: StatementS -> StatementS
   Chain     :: StatementS -> StatementS -> StatementS
@@ -51,15 +52,18 @@ put :: (Int, StatementS) -> StreamIt ()
 put s = StreamIt $ \ _ -> ((), s)
 
 class AddE a where
-  add :: TypeSig -> Name -> a -> StreamIt ()
+  add :: AllE b => TypeSig -> Name -> a -> [E b] -> StreamIt ()
+  add' :: TypeSig -> Name -> a -> StreamIt ()
   info :: TypeSig -> Name -> a -> ([FilterInfo], [GraphInfo])
 
 instance AddE (Filter ()) where
-  add  a b c = addNode $ AddS a b c
+  add  a b c d = addNode $ AddS a b c d
+  add' a b c = addNode $ AddS a b c ([]::[E Int])
   info a b c = ([(a, b, snd $ evalStmt 0 c)],[])
 
 instance AddE (StreamIt ()) where
-  add  a b c = addNode $ AddS a b c
+  add  a b c d = addNode $ AddS a b c d
+  add' a b c = addNode $ AddS a b c ([]::[E Int])
   info a b c = (fst fc, snd fc ++ [(a, b, snd $ evalStream 0 c)])
     where
       fc = findDefs (snd $ evalStream 0 c)
@@ -98,7 +102,7 @@ findDefs :: StatementS -> ([FilterInfo], [GraphInfo])
 findDefs a = case a of
   DeclS _        -> ([],[])
   AssignS _ _    -> ([],[])  
-  AddS a b c     -> info a b c
+  AddS a b c _   -> info a b c
   Pipeline a     -> findDefs a
   SplitJoin a    -> findDefs a
   Chain a b      -> (nub $ fst fa ++ fst fb, nub $ snd fa ++ snd fb)

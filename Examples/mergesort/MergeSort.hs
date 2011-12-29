@@ -64,10 +64,9 @@ mergeSort = pipeline $ do
   numInputs <- int' "NUM_INPUTS" 16
   mult <- int' "MULT" 4
 
---  add "void->int" "SortInput"  sortInput [ref numInputs /. ref mult]
-  add "void->int" "SortInput"  sortInput
---  add "int->int"  "Sorter"     sorter [ref numInputs]
-  add "int->void" "IntPrinter" intPrinter
+  add "void->int" "SortInput"  sortInput [ref numInputs / ref mult]
+--  add "int->int"  "Sorter" sorter [ref numInputs]
+  add' "int->void" "IntPrinter" intPrinter
 
 main :: IO ()
 main = do

@@ -23,16 +23,13 @@ module Language.StreamIt.Core
   , (<=.)
   , (>.)
   , (>=.)
-  , (*.)
-  , (/.)
-  , div_
   , mod_
   ) where
 
 import Data.Ratio
 
 --infixl 9 !, !.
-infixl 7 *., /., `div_`, `mod_`
+infixl 7 `mod_`
 infix  4 ==., /=., <., <=., >., >=.
 infixl 3 &&.
 infixl 2 ||.
@@ -95,8 +92,8 @@ data E a where
   Const :: AllE a => a -> E a
   Add   :: NumE a => E a -> E a -> E a
   Sub   :: NumE a => E a -> E a -> E a
-  Mul   :: NumE a => E a -> a -> E a
-  Div   :: NumE a => E a -> a -> E a
+  Mul   :: NumE a => E a -> E a -> E a
+  Div   :: NumE a => E a -> E a -> E a
   Mod   :: E Int -> Int -> E Int
   Not   :: E Bool -> E Bool
   And   :: E Bool -> E Bool -> E Bool
@@ -114,14 +111,18 @@ instance Eq   (E a) where (==) = undefined
 instance (Num a, AllE a, NumE a) => Num (E a) where
   (+) = Add
   (-) = Sub
-  (*) = error "general multiplication not supported, use (*.)"
+  (*) = Mul
   negate a = 0 - a
   abs a = Mux (Lt a 0) (negate a) a
   signum a = Mux (Eq a 0) 0 $ Mux (Lt a 0) (-1) 1
   fromInteger = Const . fromInteger
 
+instance Fractional (E Int) where
+  (/) = Div
+  fromRational = undefined
+
 instance Fractional (E Float) where
-  (/) = error "general division not supported, use (/.)"
+  (/) = Div
   recip a = 1 / a
   fromRational r = Const $ fromInteger (numerator r) / fromInteger (denominator r)
 
@@ -190,20 +191,6 @@ a /=. b = not_ (a ==. b)
 -- | Greater than or equal.
 (>=.) :: NumE a => E a -> E a -> E Bool
 (>=.) = Ge
-
--- | Multiplication.
-(*.) :: NumE a => E a -> a -> E a
-(*.) = Mul
-
--- | Floating point division.
-(/.) :: E Float -> Float -> E Float
-_ /. 0 = error "divide by zero (/.)"
-a /. b = Div a b
-
--- | Integer division.
-div_ :: E Int -> Int -> E Int
-div_ _ 0 = error "divide by zero (div_)"
-div_ a b = Div a b
 
 -- | Modulo.
 mod_ :: E Int -> Int -> E Int
