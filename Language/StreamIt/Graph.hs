@@ -8,10 +8,13 @@ module Language.StreamIt.Graph
   , add
   , pipeline
   , splitjoin
+  , split
+  , join
+  , roundrobin
   ) where
 
 import Data.List
-import Control.Monad
+import Control.Monad hiding (join)
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
@@ -19,13 +22,28 @@ import Language.StreamIt.Filter
 data StatementS where
   DeclS     :: AllE a => V a -> StatementS
   AssignS   :: AllE a => V a -> E a -> StatementS
+  BranchS   :: E Bool -> StatementS -> StatementS -> StatementS
   AddS      :: (AddE a, AllE b) => TypeSig -> Name -> a -> [E b] -> StatementS
   Pipeline  :: StatementS -> StatementS
   SplitJoin :: StatementS -> StatementS
+  Split     :: Splitter -> StatementS
+  Join      :: Joiner -> StatementS
   Chain     :: StatementS -> StatementS -> StatementS
   Empty     :: StatementS
 
 instance Eq StatementS where (==) _ _ = True
+
+data Splitter = RoundrobinS
+
+instance Show Splitter where
+  show sp = case sp of
+    RoundrobinS -> "roundrobin()"
+
+data Joiner = RoundrobinJ
+
+instance Show Joiner where
+  show jn = case jn of
+    RoundrobinJ -> "roundrobin()"
 
 -- | The StreamIt monad holds the StreamIt graph.
 data StreamIt a = StreamIt ((Int, StatementS) -> (a, (Int, StatementS)))
@@ -81,6 +99,13 @@ instance CoreE (StreamIt) where
   bool name = var False name zero
   bool' = var False
   a <== b = addNode $ AssignS a b
+  ifelse cond onTrue onFalse = do
+    (id0, node) <- get
+    let (id1, node1) = evalStream id0 onTrue
+        (id2, node2) = evalStream id1 onFalse
+    put (id2, node)
+    addNode $ BranchS cond node1 node2
+  if_ cond stmt = ifelse cond stmt $ return ()
 
 pipeline :: StreamIt () -> StreamIt ()
 pipeline n = do
@@ -96,15 +121,37 @@ splitjoin n = do
   put (id1, node)
   addNode $ SplitJoin node1
 
+class SplitterJoiner a where
+  roundrobin :: a
+
+instance SplitterJoiner Splitter where
+  roundrobin = RoundrobinS
+
+instance SplitterJoiner Joiner where
+  roundrobin = RoundrobinJ
+
+split :: Splitter -> StreamIt ()
+split s = addNode $ Split s
+
+join :: Joiner -> StreamIt ()
+join j = addNode $ Join j
+
 type GraphInfo = (TypeSig, Name, StatementS)
 
 findDefs :: StatementS -> ([FilterInfo], [GraphInfo])
 findDefs a = case a of
   DeclS _        -> ([],[])
-  AssignS _ _    -> ([],[])  
+  AssignS _ _    -> ([],[])
+  BranchS _ a Empty -> ([],[])
+  BranchS _ a b  -> (nub $ fst fa ++ fst fb, nub $ snd fa ++ snd fb)
+    where
+      fa = findDefs a
+      fb = findDefs b
   AddS a b c _   -> info a b c
   Pipeline a     -> findDefs a
   SplitJoin a    -> findDefs a
+  Split _        -> ([],[])
+  Join _         -> ([],[])
   Chain a b      -> (nub $ fst fa ++ fst fb, nub $ snd fa ++ snd fb)
     where
       fa = findDefs a

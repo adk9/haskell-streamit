@@ -27,12 +27,19 @@ codeGraph (ty, name, sn) = case sn of
                        else showConstType (const' v) ++ " " ++ n ++ " = "
                             ++ showConst (const' v) ++ ";\n"
   AssignS a b     -> show a ++ " = " ++ codeExpr b ++ ";"
+  BranchS a b Empty -> "if (" ++ codeExpr a ++ ") {\n"
+                     ++ indent (codeGraph (ty, name, b)) ++ "}\n"
+  BranchS a b c   -> "if (" ++ codeExpr a ++ ") {\n"
+                     ++ indent (codeGraph (ty, name, b))
+                     ++ "}\nelse {\n" ++ indent (codeGraph (ty, name, c)) ++ "}\n"
   AddS _ n _ args -> "add " ++ n ++ "(" ++ (intercalate ", " $ map codeExpr args)
                      ++ ");\n"
   Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
                      ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
   SplitJoin a     -> ty ++ " splitjoin " ++ name ++ " {\n"
                      ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
+  Split a         -> "split " ++ show a ++ ";\n"
+  Join a          -> "join " ++ show a ++ ";\n"
   Chain a b       -> codeGraph (ty, name, a) ++ codeGraph (ty, name, b)
   Empty           -> ""
 
@@ -72,6 +79,8 @@ codeStmt name a = case a of
   Branch a b Null  -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c     -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b)
                       ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
+  Loop Null a Null b -> "while (" ++ codeExpr a ++ ") {\n"
+                        ++ indent (codeStmt name b) ++ "}\n"
   Loop a b c d     -> "for (" ++ codeStmtExpr a ++ "; " ++ codeExpr b ++ "; "
                       ++ codeStmtExpr c ++ ") {\n" ++ indent (codeStmt name d)
                       ++ "}\n"

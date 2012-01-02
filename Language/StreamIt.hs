@@ -48,10 +48,9 @@ module Language.StreamIt
   -- ** Conditional Execution
   , ifelse
   , if_
-  , case_
-  , (==>)
   -- ** Iteration
   , for_
+  , while_
   -- * StreamIt Statements
   , StreamIt
   -- ** StreamIt Flow-rate Primitives
@@ -68,6 +67,9 @@ module Language.StreamIt
   , add'
   , pipeline
   , splitjoin
+  , split
+  , join
+  , roundrobin
   -- * StreamIt Code Generation
   , compileStreamIt
   , genStreamIt

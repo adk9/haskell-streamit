@@ -13,16 +13,13 @@ module Language.StreamIt.Filter
   , init'
   , ifelse
   , if_
-  , case_
-  , (==>)
   , for_
+  , while_
   ) where
 
 import Control.Monad
 
 import Language.StreamIt.Core
-
-infixr 0 ==>
 
 data Statement where
   Decl     :: AllE a => V a -> Statement
@@ -82,6 +79,13 @@ instance CoreE (Filter) where
   bool name = var False name zero
   bool' = var False
   a <== b = statement $ Assign a b
+  ifelse cond onTrue onFalse = do
+    (id0, stmt) <- get
+    let (id1, stmt1) = evalStmt id0 onTrue
+        (id2, stmt2) = evalStmt id1 onFalse
+    put (id2, stmt)
+    statement $ Branch cond stmt1 stmt2
+  if_ cond stmt = ifelse cond stmt $ return ()
 
 -- | Increments an E Int.
 incr :: V Int -> Filter ()
@@ -123,32 +127,6 @@ work (push, pop, peek) s = do
   put (id1, stmt)
   statement $ Work (push, pop, peek) stmt1
 
--- | Conditional if-else.
-ifelse :: E Bool -> Filter () -> Filter () -> Filter ()
-ifelse cond onTrue onFalse = do
-  (id0, stmt) <- get
-  let (id1, stmt1) = evalStmt id0 onTrue
-      (id2, stmt2) = evalStmt id1 onFalse
-  put (id2, stmt)
-  statement $ Branch cond stmt1 stmt2
-
--- | Conditional if without the else.
-if_ :: E Bool -> Filter () -> Filter ()
-if_ cond stmt = ifelse cond stmt $ return ()
-
--- | Condition case statement.
-case_ :: Case () -> Filter ()
-case_ (Case f) = f $ return ()
-
-data Case a = Case (Filter () -> Filter ())
-instance Monad Case where
-  return _ = Case id
-  (>>=) = undefined
-  (Case f1) >> (Case f2) = Case $ f1 . f2
-
-(==>) :: E Bool -> Filter () -> Case ()
-a ==> s = Case $ ifelse a s
-
 -- | For loop.
 for_ :: (Filter (), E Bool, Filter ()) -> Filter () -> Filter ()
 for_ (init, cond, inc) body = do
@@ -156,3 +134,11 @@ for_ (init, cond, inc) body = do
   let (id1, stmt1) = evalStmt id0 body
   put (id1, stmt)
   statement $ Loop (evalStmt' init) cond (evalStmt' inc) stmt1
+
+-- | While loop.
+while_ :: E Bool -> Filter () -> Filter ()
+while_ cond body = do
+  (id0, stmt) <- get
+  let (id1, stmt1) = evalStmt id0 body
+  put (id1, stmt)
+  statement $ Loop Null cond Null stmt1

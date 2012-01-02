@@ -74,17 +74,17 @@ class Monad a => CoreE a where
   -- Float variable declarations.
   float :: Name -> a (V Float)
   float' :: Name -> Float -> a (V Float)
-
   -- Int variable declarations.
   int :: Name -> a (V Int)
   int' :: Name -> Int -> a (V Int)
-
   -- Bool variable declarations.
   bool :: Name -> a (V Bool)  
   bool' :: Name -> Bool -> a (V Bool)
-
   -- Assignments.
   (<==) :: AllE b => V b -> E b -> a ()
+  -- Conditional statements.
+  ifelse :: E Bool -> a () -> a () -> a ()
+  if_ :: E Bool -> a () -> a ()
 
 -- | A logical, arithmetic, comparative, or conditional expression.
 data E a where

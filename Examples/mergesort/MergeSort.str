@@ -8,17 +8,63 @@ void->int filter SortInput(int N)
 	}
 }
 
+int->int filter Merger(int N)
+{
+	work push N pop N {
+		int index1 = 0;
+		int index2 = 1;
+		while (((index1 < N) && (index2 < N))) {
+			int val1 = 0;
+			int val2 = 0;
+			if ((val1 <= val2)) {
+				push(val1);
+				index1 = (index1 + 2);
+			}
+			else {
+				push(val2);
+				index2 = (index2 + 2);
+			}
+		}
+		int leftover = 0;
+		if ((index1 < N)) {
+			leftover = index1;
+		}
+		else {
+			leftover = index2;
+		}
+		int i = 0;
+		for (i = leftover; (i < N); i = (i + 2)) {
+			push(i);
+		}
+		for (i = 0; (i < N); i = (i + 1)) {
+			pop();
+		}
+	}
+}
+
 int->void filter IntPrinter()
 {
 	work pop 1 {
 		println(pop());
 	}
 }
+int->int pipeline Sorter {
+	if ((N > 2)) {
+		int->int splitjoin Sorter {
+			split roundrobin();
+			add Sorter((N / 2));
+			add Sorter((N / 2));
+			join roundrobin();
+		}
+	}
+	add Merger(N);
+}
 
 void->void pipeline MergeSort {
 	int NUM_INPUTS = 16;
 	int MULT = 4;
 	add SortInput((NUM_INPUTS / MULT));
+	add Sorter(NUM_INPUTS);
 	add IntPrinter();
 }
 
