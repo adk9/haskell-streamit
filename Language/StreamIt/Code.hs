@@ -1,6 +1,7 @@
 module Language.StreamIt.Code (code) where
 
 import Data.List
+import qualified Control.Monad.State as S
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
@@ -18,7 +19,7 @@ code ty name node = do
     ++ "\n" ++ codeGraph (ty, name, node) ++ "\n"
   return (name ++ ".str")
   where
-    (fs, gs) = findDefs node
+    (fs, gs) = S.execState (findDefs node) ([],[])
 
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: (TypeSig, Name, StatementS) -> String

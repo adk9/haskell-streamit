@@ -3,6 +3,7 @@ module Language.StreamIt.Graph
   , StatementS (..)
   , GraphInfo
   , evalStream
+  , execStream
   , findDefs
   , add'
   , add
@@ -13,8 +14,8 @@ module Language.StreamIt.Graph
   , roundrobin
   ) where
 
-import Data.List
 import Control.Monad hiding (join)
+import qualified Control.Monad.State as S
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
@@ -32,6 +33,19 @@ data StatementS where
   Empty     :: StatementS
 
 instance Eq StatementS where (==) _ _ = True
+
+instance Show StatementS where
+  show st = case st of
+    DeclS _         -> "DeclS"
+    AssignS _ _     -> "AssignS"
+    BranchS _ _ _   -> "BranchS"
+    AddS t n _ _    -> "AddS " ++ t ++ " " ++ n
+    Pipeline _      -> "Pipeline"
+    SplitJoin _     -> "SplitJoin"
+    Split _         -> "Split"
+    Join _          -> "Join"
+    Chain _ _       -> "Chain"
+    Empty           -> "Empty"
 
 data Splitter = RoundrobinS
 
@@ -63,6 +77,9 @@ addNode n = StreamIt $ \ (id, node) -> ((), (id, Chain node n))
 evalStream :: Int -> StreamIt () -> (Int, StatementS)
 evalStream id (StreamIt f) = snd $ f (id, Empty)
 
+execStream:: StreamIt () -> StatementS 
+execStream n = snd (evalStream 0 n)
+
 get :: StreamIt (Int, StatementS)
 get = StreamIt $ \ a -> (a, a)
 
@@ -72,19 +89,27 @@ put s = StreamIt $ \ _ -> ((), s)
 class AddE a where
   add :: AllE b => TypeSig -> Name -> a -> [E b] -> StreamIt ()
   add' :: TypeSig -> Name -> a -> StreamIt ()
-  info :: TypeSig -> Name -> a -> ([FilterInfo], [GraphInfo])
+  info :: TypeSig -> Name -> a -> S.State ([FilterInfo], [GraphInfo]) ()
 
 instance AddE (Filter ()) where
   add  a b c d = addNode $ AddS a b c d
   add' a b c = addNode $ AddS a b c ([]::[E Int])
-  info a b c = ([(a, b, snd $ evalStmt 0 c)],[])
+  info a b c = do
+    (f, g) <- S.get
+    if (elem (a, b, execStmt c) f)
+      then return ()
+      else S.put ((a, b, execStmt c) : f, g)
 
 instance AddE (StreamIt ()) where
   add  a b c d = addNode $ AddS a b c d
   add' a b c = addNode $ AddS a b c ([]::[E Int])
-  info a b c = (fst fc, snd fc ++ [(a, b, snd $ evalStream 0 c)])
-    where
-      fc = findDefs (snd $ evalStream 0 c)
+  info a b c = do
+    (f, g) <- S.get
+    if (elem (a, b, execStream c) g)
+      then return ()
+      else do
+      S.put (f, (a, b, execStream c) : g)
+      findDefs (execStream c)
 
 instance CoreE (StreamIt) where
   var input name init = do
@@ -138,22 +163,15 @@ join j = addNode $ Join j
 
 type GraphInfo = (TypeSig, Name, StatementS)
 
-findDefs :: StatementS -> ([FilterInfo], [GraphInfo])
+findDefs :: StatementS -> S.State ([FilterInfo], [GraphInfo]) ()
 findDefs a = case a of
-  DeclS _        -> ([],[])
-  AssignS _ _    -> ([],[])
-  BranchS _ a Empty -> ([],[])
-  BranchS _ a b  -> (nub $ fst fa ++ fst fb, nub $ snd fa ++ snd fb)
-    where
-      fa = findDefs a
-      fb = findDefs b
+  DeclS _        -> return ()
+  AssignS _ _    -> return ()
+  BranchS _ a b  -> findDefs a >> findDefs b
   AddS a b c _   -> info a b c
   Pipeline a     -> findDefs a
   SplitJoin a    -> findDefs a
-  Split _        -> ([],[])
-  Join _         -> ([],[])
-  Chain a b      -> (nub $ fst fa ++ fst fb, nub $ snd fa ++ snd fb)
-    where
-      fa = findDefs a
-      fb = findDefs b
-  Empty          -> ([],[])
+  Split _        -> return ()
+  Join _         -> return ()
+  Chain a b      -> findDefs a >> findDefs b
+  Empty          -> return ()

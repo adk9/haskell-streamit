@@ -1,8 +1,9 @@
 module Language.StreamIt.Filter
   ( Statement (..)
-  , evalStmt
   , Filter (..)
   , FilterInfo
+  , evalStmt
+  , execStmt
   , push
   , peek
   , pop
@@ -55,8 +56,8 @@ statement a = Filter $ \ (id, statement) -> ((), (id, Sequence statement a))
 evalStmt :: Int -> Filter () -> (Int, Statement)
 evalStmt id (Filter f) = snd $ f (id, Null)
 
-evalStmt':: Filter () -> Statement 
-evalStmt' f = snd (evalStmt 0 f)
+execStmt:: Filter () -> Statement 
+execStmt f = snd (evalStmt 0 f)
 
 get :: Filter (Int, Statement)
 get = Filter $ \ a -> (a, a)
@@ -109,7 +110,7 @@ pop = statement $ Pop
 
 -- | Println
 println :: Filter () -> Filter ()
-println f = statement $ Println (evalStmt' f)
+println f = statement $ Println (execStmt f)
 
 -- | Init
 init' :: Filter () -> Filter ()
@@ -133,7 +134,7 @@ for_ (init, cond, inc) body = do
   (id0, stmt) <- get
   let (id1, stmt1) = evalStmt id0 body
   put (id1, stmt)
-  statement $ Loop (evalStmt' init) cond (evalStmt' inc) stmt1
+  statement $ Loop (execStmt init) cond (execStmt inc) stmt1
 
 -- | While loop.
 while_ :: E Bool -> Filter () -> Filter ()
