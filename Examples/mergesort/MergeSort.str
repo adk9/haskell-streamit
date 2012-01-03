@@ -48,7 +48,8 @@ void->int filter SortInput(int N)
 		}
 	}
 }
-int->int pipeline Sorter {
+int->int pipeline Sorter(int N)
+{
 	if ((N > 2)) {
 		int->int splitjoin Sorter {
 			split roundrobin();
@@ -60,7 +61,8 @@ int->int pipeline Sorter {
 	add Merger(N);
 }
 
-void->void pipeline MergeSort {
+void->void pipeline MergeSort()
+{
 	int NUM_INPUTS = 16;
 	int MULT = 4;
 	add SortInput((NUM_INPUTS / MULT));

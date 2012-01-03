@@ -32,10 +32,11 @@ codeGraph (ty, name, sn) = case sn of
                      ++ indent (codeGraph (ty, name, b)) ++ "}\n"
   BranchS a b c   -> "if (" ++ codeExpr a ++ ") {\n"
                      ++ indent (codeGraph (ty, name, b))
-                     ++ "}\nelse {\n" ++ indent (codeGraph (ty, name, c)) ++ "}\n"
+                     ++ "} else {\n" ++ indent (codeGraph (ty, name, c)) ++ "}\n"
   AddS _ n _ args -> "add " ++ n ++ "(" ++ (intercalate ", " $ map codeExpr args)
                      ++ ");\n"
-  Pipeline a      -> ty ++ " pipeline " ++ name ++ " {\n"
+  Pipeline a      -> ty ++ " pipeline " ++ name ++ "("
+                     ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
                      ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
   SplitJoin a     -> ty ++ " splitjoin " ++ name ++ " {\n"
                      ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
@@ -44,6 +45,20 @@ codeGraph (ty, name, sn) = case sn of
   Chain a b       -> codeGraph (ty, name, a) ++ codeGraph (ty, name, b)
   Empty           -> ""
 
+-- | Walk down the Stream AST and find the declared inputs to print.
+codeInputS :: StatementS -> [String]
+codeInputS a = case a of
+  DeclS (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
+  AssignS _ _     -> []
+  BranchS _ b c   -> codeInputS b ++ codeInputS c
+  AddS _ _ _ _    -> []
+  Pipeline a      -> codeInputS a
+  SplitJoin a     -> codeInputS a
+  Split _         -> []
+  Join _          -> []
+  Chain a b       -> codeInputS a ++ codeInputS b
+  Empty           -> []
+
 -- | Generate StreamIt code inside a filter.
 codeFilter :: (TypeSig, Name, Statement) -> String
 codeFilter (ty, name, stmt) = ty ++ " filter " ++ name ++ "("
@@ -51,12 +66,11 @@ codeFilter (ty, name, stmt) = ty ++ " filter " ++ name ++ "("
                               ++ indent (codeStmt name stmt)
                               ++ "}"
 
--- | Walk down the AST and find out the declared inputs to print.
+-- | Walk down the Filter AST and find the declared inputs to print.
 codeInput :: Statement -> [String]
 codeInput a = case a of
   Decl (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
   Assign _ _       -> []
-  Branch _ b Null  -> codeInput b
   Branch _ b c     -> codeInput b ++ codeInput c
   Loop _ _ _ a     -> codeInput a
   Sequence a b     -> codeInput a ++ codeInput b
