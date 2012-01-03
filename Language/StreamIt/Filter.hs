@@ -32,7 +32,6 @@ data Statement where
   Init     :: Statement -> Statement
   Push     :: AllE a => E a -> Statement
   Pop      :: Statement
-  Peek     :: V Int -> Statement
   Println  :: Statement -> Statement
   Null     :: Statement
 
@@ -88,11 +87,11 @@ instance CoreE (Filter) where
     statement $ Branch cond stmt1 stmt2
   if_ cond stmt = ifelse cond stmt $ return ()
 
--- | Increments an E Int.
+-- | Increments a V Int.
 incr :: V Int -> Filter ()
 incr a = a <== ref a + 1
 
--- | Decrements an E Int.
+-- | Decrements a V Int.
 decr :: V Int -> Filter ()
 decr a = a <== ref a - 1
 
@@ -101,8 +100,8 @@ push :: AllE a => E a -> Filter ()
 push a = statement $ Push a
 
 -- | Peek
-peek :: V Int -> Filter ()
-peek a = statement $ Peek a
+peek :: AllE a => E a -> E a
+peek = Peek
 
 -- | Pop
 pop :: Filter ()

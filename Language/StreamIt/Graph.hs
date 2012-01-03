@@ -8,7 +8,9 @@ module Language.StreamIt.Graph
   , add'
   , add
   , pipeline
+  , pipeline_
   , splitjoin
+  , splitjoin_  
   , split
   , join
   , roundrobin
@@ -25,8 +27,8 @@ data StatementS where
   AssignS   :: AllE a => V a -> E a -> StatementS
   BranchS   :: E Bool -> StatementS -> StatementS -> StatementS
   AddS      :: (AddE a, AllE b) => TypeSig -> Name -> a -> [E b] -> StatementS
-  Pipeline  :: StatementS -> StatementS
-  SplitJoin :: StatementS -> StatementS
+  Pipeline  :: Bool -> StatementS -> StatementS
+  SplitJoin :: Bool -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
   Join      :: Joiner -> StatementS
   Chain     :: StatementS -> StatementS -> StatementS
@@ -40,8 +42,8 @@ instance Show StatementS where
     AssignS _ _     -> "AssignS"
     BranchS _ _ _   -> "BranchS"
     AddS t n _ _    -> "AddS " ++ t ++ " " ++ n
-    Pipeline _      -> "Pipeline"
-    SplitJoin _     -> "SplitJoin"
+    Pipeline _ _    -> "Pipeline"
+    SplitJoin _ _   -> "SplitJoin"
     Split _         -> "Split"
     Join _          -> "Join"
     Chain _ _       -> "Chain"
@@ -132,19 +134,31 @@ instance CoreE (StreamIt) where
     addNode $ BranchS cond node1 node2
   if_ cond stmt = ifelse cond stmt $ return ()
 
-pipeline :: StreamIt () -> StreamIt ()
-pipeline n = do
+pipelineT :: Bool -> StreamIt () -> StreamIt ()
+pipelineT t n = do
   (id0, node) <- get
   let (id1, node1) = evalStream id0 n
   put (id1, node)
-  addNode $ Pipeline node1
+  addNode $ Pipeline t node1
+
+pipeline :: StreamIt () -> StreamIt ()
+pipeline n = pipelineT False n
+
+pipeline_ :: StreamIt () -> StreamIt ()
+pipeline_ n = pipelineT True n
+
+splitjoinT :: Bool -> StreamIt () -> StreamIt ()
+splitjoinT t n = do
+  (id0, node) <- get
+  let (id1, node1) = evalStream id0 n
+  put (id1, node)
+  addNode $ SplitJoin t node1
 
 splitjoin :: StreamIt () -> StreamIt ()
-splitjoin n = do
-  (id0, node) <- get
-  let (id1, node1) = evalStream id0 n
-  put (id1, node)
-  addNode $ SplitJoin node1
+splitjoin n = splitjoinT False n
+
+splitjoin_ :: StreamIt () -> StreamIt ()
+splitjoin_ n = splitjoinT True n
 
 class SplitterJoiner a where
   roundrobin :: a
@@ -169,8 +183,8 @@ findDefs a = case a of
   AssignS _ _    -> return ()
   BranchS _ a b  -> findDefs a >> findDefs b
   AddS a b c _   -> info a b c
-  Pipeline a     -> findDefs a
-  SplitJoin a    -> findDefs a
+  Pipeline _ a   -> findDefs a
+  SplitJoin _ a  -> findDefs a
   Split _        -> return ()
   Join _         -> return ()
   Chain a b      -> findDefs a >> findDefs b

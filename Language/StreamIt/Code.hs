@@ -24,40 +24,45 @@ code ty name node = do
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: (TypeSig, Name, StatementS) -> String
 codeGraph (ty, name, sn) = case sn of
-  DeclS (V inp n v) -> if inp then ""
+  DeclS (V inp n v) -> if inp
+                       then ""
                        else showConstType (const' v) ++ " " ++ n ++ " = "
                             ++ showConst (const' v) ++ ";\n"
-  AssignS a b     -> show a ++ " = " ++ codeExpr b ++ ";"
+  AssignS a b       -> show a ++ " = " ++ codeExpr b ++ ";"
   BranchS a b Empty -> "if (" ++ codeExpr a ++ ") {\n"
-                     ++ indent (codeGraph (ty, name, b)) ++ "}\n"
-  BranchS a b c   -> "if (" ++ codeExpr a ++ ") {\n"
-                     ++ indent (codeGraph (ty, name, b))
-                     ++ "} else {\n" ++ indent (codeGraph (ty, name, c)) ++ "}\n"
-  AddS _ n _ args -> "add " ++ n ++ "(" ++ (intercalate ", " $ map codeExpr args)
-                     ++ ");\n"
-  Pipeline a      -> ty ++ " pipeline " ++ name ++ "("
-                     ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
-                     ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
-  SplitJoin a     -> ty ++ " splitjoin " ++ name ++ " {\n"
-                     ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
-  Split a         -> "split " ++ show a ++ ";\n"
-  Join a          -> "join " ++ show a ++ ";\n"
-  Chain a b       -> codeGraph (ty, name, a) ++ codeGraph (ty, name, b)
-  Empty           -> ""
+                       ++ indent (codeGraph (ty, name, b)) ++ "}\n"
+  BranchS a b c     -> "if (" ++ codeExpr a ++ ") {\n"
+                       ++ indent (codeGraph (ty, name, b))
+                       ++ "} else {\n" ++ indent (codeGraph (ty, name, c)) ++ "}\n"
+  AddS _ n _ args   -> "add " ++ n ++ "(" ++ (intercalate ", " $ map codeExpr args)
+                       ++ ");\n"
+  Pipeline False a  -> ty ++ " pipeline " ++ name ++ "("
+                       ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
+                       ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
+  Pipeline True a   -> "add pipeline {\n"
+                       ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
+  SplitJoin False a -> ty ++ " splitjoin " ++ name ++ " {\n"
+                       ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
+  SplitJoin True a  -> "add splitjoin {\n"
+                       ++ (indent $ codeGraph (ty, name, a)) ++ "}\n"
+  Split a           -> "split " ++ show a ++ ";\n"
+  Join a            -> "join " ++ show a ++ ";\n"
+  Chain a b         -> codeGraph (ty, name, a) ++ codeGraph (ty, name, b)
+  Empty             -> ""
 
 -- | Walk down the Stream AST and find the declared inputs to print.
 codeInputS :: StatementS -> [String]
 codeInputS a = case a of
   DeclS (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  AssignS _ _     -> []
-  BranchS _ b c   -> codeInputS b ++ codeInputS c
-  AddS _ _ _ _    -> []
-  Pipeline a      -> codeInputS a
-  SplitJoin a     -> codeInputS a
-  Split _         -> []
-  Join _          -> []
-  Chain a b       -> codeInputS a ++ codeInputS b
-  Empty           -> []
+  AssignS _ _       -> []
+  BranchS _ b c     -> codeInputS b ++ codeInputS c
+  AddS _ _ _ _      -> []
+  Pipeline _ a      -> codeInputS a
+  SplitJoin _ a     -> codeInputS a
+  Split _           -> []
+  Join _            -> []
+  Chain a b         -> codeInputS a ++ codeInputS b
+  Empty             -> []
 
 -- | Generate StreamIt code inside a filter.
 codeFilter :: (TypeSig, Name, Statement) -> String
@@ -78,7 +83,6 @@ codeInput a = case a of
   Work _ a         -> codeInput a
   Push _           -> []
   Pop              -> []
-  Peek _           -> []
   Println _        -> []
   Null             -> []
 
@@ -93,7 +97,7 @@ codeStmt name a = case a of
   Assign _ _       -> codeStmtExpr a ++ ";\n"
   Branch a b Null  -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c     -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b)
-                      ++ "}\nelse {\n" ++ indent (codeStmt name c) ++ "}\n"
+                      ++ "} else {\n" ++ indent (codeStmt name c) ++ "}\n"
   Loop Null a Null b -> "while (" ++ codeExpr a ++ ") {\n"
                         ++ indent (codeStmt name b) ++ "}\n"
   Loop a b c d     -> "for (" ++ codeStmtExpr a ++ "; " ++ codeExpr b ++ "; "
@@ -107,7 +111,6 @@ codeStmt name a = case a of
                       ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
   Push a           -> "push(" ++ codeExpr a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
-  Peek a           -> "peek(" ++ show a ++ ");\n"
   Println a        -> "println(" ++ codeStmtExpr a ++ ");\n"
   Null             -> ""
   where
@@ -117,7 +120,6 @@ codeStmt name a = case a of
       Sequence a b   -> codeStmtExpr a ++ codeStmtExpr b
       Push _         -> ""
       Pop	     -> "pop()"
-      Peek _         -> ""
       Decl _	     -> ""
       Branch _ _ _   -> ""
       Loop _ _ _ _   -> ""
@@ -134,6 +136,7 @@ codeStmt name a = case a of
 codeExpr :: E a -> String
 codeExpr a = case a of
   Ref a     -> show a
+  Peek a    -> "peek(" ++ codeExpr a ++ ")"
   Const a   -> showConst $ const' a
   Add a b   -> group [codeExpr a, "+", codeExpr b]
   Sub a b   -> group [codeExpr a, "-", codeExpr b]

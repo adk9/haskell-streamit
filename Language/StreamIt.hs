@@ -66,7 +66,9 @@ module Language.StreamIt
   , add
   , add'
   , pipeline
+  , pipeline_
   , splitjoin
+  , splitjoin_
   , split
   , join
   , roundrobin

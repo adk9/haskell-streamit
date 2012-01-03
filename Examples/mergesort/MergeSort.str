@@ -13,11 +13,12 @@ int->int filter Merger(int N)
 		while (((index1 < N) && (index2 < N))) {
 			int val1 = 0;
 			int val2 = 0;
+			val1 = peek(index1);
+			val2 = peek(index2);
 			if ((val1 <= val2)) {
 				push(val1);
 				index1 = (index1 + 2);
-			}
-			else {
+			} else {
 				push(val2);
 				index2 = (index2 + 2);
 			}
@@ -25,13 +26,12 @@ int->int filter Merger(int N)
 		int leftover = 0;
 		if ((index1 < N)) {
 			leftover = index1;
-		}
-		else {
+		} else {
 			leftover = index2;
 		}
 		int i = 0;
 		for (i = leftover; (i < N); i = (i + 2)) {
-			push(i);
+			push(peek(i));
 		}
 		for (i = 0; (i < N); i = (i + 1)) {
 			pop();
@@ -51,7 +51,7 @@ void->int filter SortInput(int N)
 int->int pipeline Sorter(int N)
 {
 	if ((N > 2)) {
-		int->int splitjoin Sorter {
+		add splitjoin {
 			split roundrobin();
 			add Sorter((N / 2));
 			add Sorter((N / 2));

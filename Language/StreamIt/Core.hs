@@ -89,6 +89,7 @@ class Monad a => CoreE a where
 -- | A logical, arithmetic, comparative, or conditional expression.
 data E a where
   Ref   :: AllE a => V a -> E a
+  Peek  :: AllE a => E a -> E a
   Const :: AllE a => a -> E a
   Add   :: NumE a => E a -> E a -> E a
   Sub   :: NumE a => E a -> E a -> E a
