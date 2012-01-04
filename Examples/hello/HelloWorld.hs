@@ -19,5 +19,5 @@ intPrinter = do
 
 helloWorld :: StreamIt ()
 helloWorld = pipeline $ do
-  add' "void->int" "IntSource" intSource
-  add' "int->void" "IntPrinter" intPrinter
+  add "void->int" "IntSource" intSource
+  add "int->void" "IntPrinter" intPrinter

@@ -89,13 +89,13 @@ put :: (Int, StatementS) -> StreamIt ()
 put s = StreamIt $ \ _ -> ((), s)
 
 class AddE a where
-  add :: AllE b => TypeSig -> Name -> a -> [E b] -> StreamIt ()
-  add' :: TypeSig -> Name -> a -> StreamIt ()
+  add' :: AllE b => TypeSig -> Name -> a -> [E b] -> StreamIt ()
+  add  :: TypeSig -> Name -> a -> StreamIt ()
   info :: TypeSig -> Name -> a -> S.State ([FilterInfo], [GraphInfo]) ()
 
 instance AddE (Filter ()) where
-  add  a b c d = addNode $ AddS a b c d
-  add' a b c = addNode $ AddS a b c ([]::[E Int])
+  add' a b c d = addNode $ AddS a b c d
+  add  a b c = addNode $ AddS a b c ([]::[E Int])
   info a b c = do
     (f, g) <- S.get
     if (elem (a, b, execStmt c) f)
@@ -103,8 +103,8 @@ instance AddE (Filter ()) where
       else S.put ((a, b, execStmt c) : f, g)
 
 instance AddE (StreamIt ()) where
-  add  a b c d = addNode $ AddS a b c d
-  add' a b c = addNode $ AddS a b c ([]::[E Int])
+  add' a b c d = addNode $ AddS a b c d
+  add  a b c = addNode $ AddS a b c ([]::[E Int])
   info a b c = do
     (f, g) <- S.get
     if (elem (a, b, execStream c) g)

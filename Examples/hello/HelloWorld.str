@@ -1,3 +1,10 @@
+int->void filter IntPrinter()
+{
+	work pop 1 {
+		println(pop());
+	}
+}
+
 void->int filter IntSource()
 {
 	int x = 0;
@@ -10,14 +17,8 @@ void->int filter IntSource()
 	}
 }
 
-int->void filter IntPrinter()
+void->void pipeline HelloWorld()
 {
-	work pop 1 {
-		println(pop());
-	}
-}
-
-void->void pipeline HelloWorld {
 	add IntSource();
 	add IntPrinter();
 }
