@@ -5,68 +5,68 @@ int->void filter IntPrinter()
 	}
 }
 
-int->int filter Merger(int N)
+int->int filter Merger(int var6)
 {
-	work push N pop N {
-		int index1 = 0;
-		int index2 = 1;
-		while (((index1 < N) && (index2 < N))) {
-			int val1 = 0;
-			int val2 = 0;
-			val1 = peek(index1);
-			val2 = peek(index2);
-			if ((val1 <= val2)) {
-				push(val1);
-				index1 = (index1 + 2);
+	work push var6 pop var6 {
+		int var7 = 0;
+		int var8 = 1;
+		while (((var7 < var6) && (var8 < var6))) {
+			int var9 = 0;
+			int var10 = 0;
+			var9 = peek(var7);
+			var10 = peek(var8);
+			if ((var9 <= var10)) {
+				push(var9);
+				var7 = (var7 + 2);
 			} else {
-				push(val2);
-				index2 = (index2 + 2);
+				push(var10);
+				var8 = (var8 + 2);
 			}
 		}
-		int leftover = 0;
-		if ((index1 < N)) {
-			leftover = index1;
+		int var11 = 0;
+		if ((var7 < var6)) {
+			var11 = var7;
 		} else {
-			leftover = index2;
+			var11 = var8;
 		}
-		int i = 0;
-		for (i = leftover; (i < N); i = (i + 2)) {
-			push(peek(i));
+		int var12 = 0;
+		for (var12 = var11; (var12 < var6); var12 = (var12 + 2)) {
+			push(peek(var12));
 		}
-		for (i = 0; (i < N); i = (i + 1)) {
+		for (var12 = 0; (var12 < var6); var12 = (var12 + 1)) {
 			pop();
 		}
 	}
 }
 
-void->int filter SortInput(int N)
+void->int filter SortInput(int var13)
 {
-	work push N {
-		int i = 0;
-		for (i = 0; (i < N); i = (i + 1)) {
-			push((N - i));
+	work push var13 {
+		int var14 = 0;
+		for (var14 = 0; (var14 < var13); var14 = (var14 + 1)) {
+			push((var13 - var14));
 		}
 	}
 }
-int->int pipeline Sorter(int N)
+int->int pipeline Sorter(int var15)
 {
-	if ((N > 2)) {
+	if ((var15 > 2)) {
 		add splitjoin {
 			split roundrobin();
-			add Sorter((N / 2));
-			add Sorter((N / 2));
+			add Sorter((var15 / 2));
+			add Sorter((var15 / 2));
 			join roundrobin();
 		}
 	}
-	add Merger(N);
+	add Merger(var15);
 }
 
 void->void pipeline MergeSort()
 {
-	int NUM_INPUTS = 16;
-	int MULT = 4;
-	add SortInput((NUM_INPUTS / MULT));
-	add Sorter(NUM_INPUTS);
+	int var1 = 16;
+	int var2 = 4;
+	add SortInput((var1 / var2));
+	add Sorter(var1);
 	add IntPrinter();
 }
 

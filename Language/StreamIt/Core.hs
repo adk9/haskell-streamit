@@ -68,18 +68,18 @@ instance NumE Float
 
 -- | Generic variable declarations.
 class Monad a => CoreE a where
-  var :: AllE b => Bool -> Name -> b -> a (V b)
-  input :: AllE b => (Name -> a (V b)) -> Name -> a (V b)
+  var :: AllE b  => Bool -> b -> a (V b)
+  input :: AllE b => a (V b) -> a (V b)
 
   -- Float variable declarations.
-  float :: Name -> a (V Float)
-  float' :: Name -> Float -> a (V Float)
+  float :: a (V Float)
+  float' :: Float -> a (V Float)
   -- Int variable declarations.
-  int :: Name -> a (V Int)
-  int' :: Name -> Int -> a (V Int)
+  int :: a (V Int)
+  int' :: Int -> a (V Int)
   -- Bool variable declarations.
-  bool :: Name -> a (V Bool)  
-  bool' :: Name -> Bool -> a (V Bool)
+  bool :: a (V Bool)
+  bool' :: Bool -> a (V Bool)
   -- Assignments.
   (<==) :: AllE b => V b -> E b -> a ()
   -- Conditional statements.

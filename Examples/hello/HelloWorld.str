@@ -7,13 +7,13 @@ int->void filter IntPrinter()
 
 void->int filter IntSource()
 {
-	int x = 0;
+	int var1 = 0;
 	init {
-		x = 0;
+		var1 = 0;
 	}
 	work push 1 {
-		x = (x + 1);
-		push(x);
+		var1 = (var1 + 1);
+		push(var1);
 	}
 }
 

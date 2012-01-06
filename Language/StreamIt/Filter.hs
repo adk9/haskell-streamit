@@ -1,6 +1,7 @@
 module Language.StreamIt.Filter
   ( Statement (..)
-  , Filter (..)
+  , FilterT (..)
+  , Filter
   , FilterInfo
   , evalStmt
   , execStmt
@@ -18,7 +19,9 @@ module Language.StreamIt.Filter
   , while_
   ) where
 
+import Data.Unique
 import Control.Monad
+import Control.Monad.Trans
 
 import Language.StreamIt.Core
 
@@ -35,54 +38,63 @@ data Statement where
   Println  :: Statement -> Statement
   Null     :: Statement
 
-instance Eq Statement where (==) _ _ = True
+instance Eq (IO Statement) where (==) _ _ = True
 
 -- | The Filter monad holds StreamIt filter statements.
-data Filter a = Filter ((Int, Statement) -> (a, (Int, Statement)))
+newtype FilterT m a = FilterT {runFilterT :: ((Int, Statement) -> m (a, (Int, Statement)))}
 
-instance Monad Filter where
-  return a = Filter $ \ s -> (a, s)
-  (Filter f1) >>= f2 = Filter f3
-    where
-    f3 s1 = f4 s2
-      where
-      (a, s2) = f1 s1
-      Filter f4 = f2 a
+type Filter = FilterT IO
 
-statement :: Statement -> Filter ()
-statement a = Filter $ \ (id, statement) -> ((), (id, Sequence statement a))
+instance Monad m => Monad (FilterT m) where
+  return a    = FilterT $ \ s -> return (a, s)
+  (>>=) sf f  = FilterT $ \ s -> do (a1, s1) <- runFilterT sf s
+                                    (a2, s2) <- runFilterT (f a1) s1
+                                    return (a2, s2)
 
-evalStmt :: Int -> Filter () -> (Int, Statement)
-evalStmt id (Filter f) = snd $ f (id, Null)
+instance MonadTrans FilterT where
+  lift m = FilterT $ \ s -> do
+    a <- m
+    return (a, s)
 
-execStmt:: Filter () -> Statement 
-execStmt f = snd (evalStmt 0 f)
+statement :: Monad m => Statement -> FilterT m ()
+statement a = FilterT $ \ (id, statement) -> return ((), (id, Sequence statement a))
 
-get :: Filter (Int, Statement)
-get = Filter $ \ a -> (a, a)
+evalStmt :: Monad m => Int -> FilterT m () -> m (Int, Statement)
+evalStmt id (FilterT f) = do
+  (_, x) <- f (id, Null)
+  return x
 
-put :: (Int, Statement) -> Filter ()
-put s = Filter $ \ _ -> ((), s)
+execStmt:: Monad m => FilterT m () -> m Statement 
+execStmt f = do
+  (_, x) <- evalStmt 0 f
+  return x
 
-type FilterInfo = (TypeSig, Name, Statement)
+get :: Monad m => FilterT m (Int, Statement)
+get = FilterT $ \ a -> return (a, a)
+
+put :: Monad m => (Int, Statement) -> FilterT m ()
+put s = FilterT $ \ _ -> return ((), s)
+
+type FilterInfo = (TypeSig, Name, IO Statement)
 
 instance CoreE (Filter) where
-  var input name init = do
+  var input init = do
     (id, stmt) <- get
-    put (id, Sequence stmt $ Decl (V input name init))
-    return $ V input name init
-  input _ name = var True name zero
-  float name = var False name zero
+    n <- lift newUnique
+    put (id, Sequence stmt $ Decl (V input ("var" ++ show (hashUnique n)) init))
+    return $ V input ("var" ++ show (hashUnique n)) init
+  input _ = var True zero
+  float = var False zero
   float' = var False
-  int name = var False name zero
+  int = var False zero
   int' = var False
-  bool name = var False name zero
+  bool = var False zero
   bool' = var False
   a <== b = statement $ Assign a b
   ifelse cond onTrue onFalse = do
     (id0, stmt) <- get
-    let (id1, stmt1) = evalStmt id0 onTrue
-        (id2, stmt2) = evalStmt id1 onFalse
+    (id1, stmt1) <- lift $ evalStmt id0 onTrue
+    (id2, stmt2) <- lift $ evalStmt id1 onFalse
     put (id2, stmt)
     statement $ Branch cond stmt1 stmt2
   if_ cond stmt = ifelse cond stmt $ return ()
@@ -109,13 +121,15 @@ pop = statement $ Pop
 
 -- | Println
 println :: Filter () -> Filter ()
-println f = statement $ Println (execStmt f)
+println f = do
+  s <- lift $ execStmt f
+  statement $ Println s
 
 -- | Init
 init' :: Filter () -> Filter ()
 init' s = do
   (id0, stmt) <- get
-  let (id1, stmt1) = evalStmt id0 s
+  (id1, stmt1) <- lift $ evalStmt id0 s
   put (id1, stmt)
   statement $ Init stmt1
 
@@ -123,7 +137,7 @@ init' s = do
 work :: (E Int, E Int, E Int) -> Filter () -> Filter ()
 work (push, pop, peek) s = do
   (id0, stmt) <- get
-  let (id1, stmt1) = evalStmt id0 s
+  (id1, stmt1) <- lift $ evalStmt id0 s
   put (id1, stmt)
   statement $ Work (push, pop, peek) stmt1
 
@@ -131,14 +145,16 @@ work (push, pop, peek) s = do
 for_ :: (Filter (), E Bool, Filter ()) -> Filter () -> Filter ()
 for_ (init, cond, inc) body = do
   (id0, stmt) <- get
-  let (id1, stmt1) = evalStmt id0 body
+  (id1, stmt1) <- lift $ evalStmt id0 body
+  ini <- lift $ execStmt init
+  inc <- lift $ execStmt inc
   put (id1, stmt)
-  statement $ Loop (execStmt init) cond (execStmt inc) stmt1
+  statement $ Loop ini cond inc stmt1
 
 -- | While loop.
 while_ :: E Bool -> Filter () -> Filter ()
 while_ cond body = do
   (id0, stmt) <- get
-  let (id1, stmt1) = evalStmt id0 body
+  (id1, stmt1) <- lift $ evalStmt id0 body
   put (id1, stmt)
   statement $ Loop Null cond Null stmt1

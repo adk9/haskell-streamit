@@ -1,5 +1,6 @@
 module Language.StreamIt.Graph
-  ( StreamIt (..)
+  ( StreamItT (..)
+  , StreamIt
   , StatementS (..)
   , GraphInfo
   , evalStream
@@ -16,7 +17,9 @@ module Language.StreamIt.Graph
   , roundrobin
   ) where
 
+import Data.Unique
 import Control.Monad hiding (join)
+import Control.Monad.Trans
 import qualified Control.Monad.State as S
 
 import Language.StreamIt.Core
@@ -34,20 +37,7 @@ data StatementS where
   Chain     :: StatementS -> StatementS -> StatementS
   Empty     :: StatementS
 
-instance Eq StatementS where (==) _ _ = True
-
-instance Show StatementS where
-  show st = case st of
-    DeclS _         -> "DeclS"
-    AssignS _ _     -> "AssignS"
-    BranchS _ _ _   -> "BranchS"
-    AddS t n _ _    -> "AddS " ++ t ++ " " ++ n
-    Pipeline _ _    -> "Pipeline"
-    SplitJoin _ _   -> "SplitJoin"
-    Split _         -> "Split"
-    Join _          -> "Join"
-    Chain _ _       -> "Chain"
-    Empty           -> "Empty"
+instance Eq (IO StatementS) where (==) _ _ = True
 
 data Splitter = RoundrobinS
 
@@ -62,36 +52,44 @@ instance Show Joiner where
     RoundrobinJ -> "roundrobin()"
 
 -- | The StreamIt monad holds the StreamIt graph.
-data StreamIt a = StreamIt ((Int, StatementS) -> (a, (Int, StatementS)))
+newtype StreamItT m a = StreamItT {runStreamItT :: ((Int, StatementS) -> m (a, (Int, StatementS)))}
 
-instance Monad StreamIt where
-  return a = StreamIt $ \ s -> (a, s)
-  (StreamIt f1) >>= f2 = StreamIt f3
-    where
-    f3 s1 = f4 s2
-      where
-      (a, s2) = f1 s1
-      StreamIt f4 = f2 a
+type StreamIt = StreamItT IO
 
-addNode :: StatementS -> StreamIt ()
-addNode n = StreamIt $ \ (id, node) -> ((), (id, Chain node n))
+instance Monad m => Monad (StreamItT m) where
+  return a    = StreamItT $ \ s -> return (a, s)
+  (>>=) sf f  = StreamItT $ \ s -> do (a1, s1) <- runStreamItT sf s
+                                      (a2, s2) <- runStreamItT (f a1) s1
+                                      return (a2, s2)
 
-evalStream :: Int -> StreamIt () -> (Int, StatementS)
-evalStream id (StreamIt f) = snd $ f (id, Empty)
+instance MonadTrans StreamItT where
+  lift m = StreamItT $ \ s -> do
+    a <- m
+    return (a, s)
 
-execStream:: StreamIt () -> StatementS 
-execStream n = snd (evalStream 0 n)
+addNode :: Monad m => StatementS -> StreamItT m ()
+addNode n = StreamItT $ \ (id, node) -> return ((), (id, Chain node n))
 
-get :: StreamIt (Int, StatementS)
-get = StreamIt $ \ a -> (a, a)
+evalStream :: Monad m => Int -> StreamItT m () -> m (Int, StatementS)
+evalStream id (StreamItT f) = do
+  (_, x) <- f (id, Empty)
+  return x
 
-put :: (Int, StatementS) -> StreamIt ()
-put s = StreamIt $ \ _ -> ((), s)
+execStream:: Monad m => StreamItT m () -> m StatementS
+execStream n = do
+  (_, x) <- evalStream 0 n
+  return x
+
+get :: Monad m => StreamItT m (Int, StatementS)
+get = StreamItT $ \ a -> return (a, a)
+
+put :: Monad m => (Int, StatementS) -> StreamItT m ()
+put s = StreamItT $ \ _ -> return ((), s)
 
 class AddE a where
   add' :: AllE b => TypeSig -> Name -> a -> [E b] -> StreamIt ()
   add  :: TypeSig -> Name -> a -> StreamIt ()
-  info :: TypeSig -> Name -> a -> S.State ([FilterInfo], [GraphInfo]) ()
+  info :: TypeSig -> Name -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 
 instance AddE (Filter ()) where
   add' a b c d = addNode $ AddS a b c d
@@ -107,29 +105,31 @@ instance AddE (StreamIt ()) where
   add  a b c = addNode $ AddS a b c ([]::[E Int])
   info a b c = do
     (f, g) <- S.get
+    cs <- lift $ execStream c
     if (elem (a, b, execStream c) g)
       then return ()
       else do
       S.put (f, (a, b, execStream c) : g)
-      findDefs (execStream c)
+      findDefs cs
 
 instance CoreE (StreamIt) where
-  var input name init = do
+  var input init = do
     (id, stmt) <- get
-    put (id, Chain stmt $ DeclS (V input name init))
-    return $ V input name init
-  input _ name = var True name zero
-  float name = var False name zero
+    n <- lift newUnique
+    put (id, Chain stmt $ DeclS (V input ("var" ++ show (hashUnique n)) init))
+    return $ V input ("var" ++ show (hashUnique n)) init
+  input _ = var True zero
+  float = var False zero
   float' = var False
-  int name = var False name zero
+  int = var False zero
   int' = var False
-  bool name = var False name zero
+  bool = var False zero
   bool' = var False
   a <== b = addNode $ AssignS a b
   ifelse cond onTrue onFalse = do
     (id0, node) <- get
-    let (id1, node1) = evalStream id0 onTrue
-        (id2, node2) = evalStream id1 onFalse
+    (id1, node1) <- lift $ evalStream id0 onTrue
+    (id2, node2) <- lift $ evalStream id1 onFalse
     put (id2, node)
     addNode $ BranchS cond node1 node2
   if_ cond stmt = ifelse cond stmt $ return ()
@@ -137,7 +137,7 @@ instance CoreE (StreamIt) where
 pipelineT :: Bool -> StreamIt () -> StreamIt ()
 pipelineT t n = do
   (id0, node) <- get
-  let (id1, node1) = evalStream id0 n
+  (id1, node1) <- lift $ evalStream id0 n
   put (id1, node)
   addNode $ Pipeline t node1
 
@@ -150,7 +150,7 @@ pipeline_ n = pipelineT True n
 splitjoinT :: Bool -> StreamIt () -> StreamIt ()
 splitjoinT t n = do
   (id0, node) <- get
-  let (id1, node1) = evalStream id0 n
+  (id1, node1) <- lift $ evalStream id0 n
   put (id1, node)
   addNode $ SplitJoin t node1
 
@@ -175,9 +175,9 @@ split s = addNode $ Split s
 join :: Joiner -> StreamIt ()
 join j = addNode $ Join j
 
-type GraphInfo = (TypeSig, Name, StatementS)
+type GraphInfo = (TypeSig, Name, IO StatementS)
 
-findDefs :: StatementS -> S.State ([FilterInfo], [GraphInfo]) ()
+findDefs :: StatementS -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 findDefs a = case a of
   DeclS _        -> return ()
   AssignS _ _    -> return ()

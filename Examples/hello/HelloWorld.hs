@@ -4,7 +4,7 @@ import Language.StreamIt
 
 intSource :: Filter ()
 intSource = do
-  x <- int "x"
+  x <- int
   init' $ do
     x <== 0
 
