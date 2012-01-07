@@ -1,72 +1,72 @@
-int->void filter IntPrinter()
+int->void filter filt17()
 {
 	work pop 1 {
 		println(pop());
 	}
 }
 
-int->int filter Merger(int var6)
+int->int filter filt18(int var8)
 {
-	work push var6 pop var6 {
-		int var7 = 0;
-		int var8 = 1;
-		while (((var7 < var6) && (var8 < var6))) {
-			int var9 = 0;
-			int var10 = 0;
-			var9 = peek(var7);
-			var10 = peek(var8);
-			if ((var9 <= var10)) {
-				push(var9);
-				var7 = (var7 + 2);
+	work push var8 pop var8 {
+		int var9 = 0;
+		int var10 = 1;
+		while (((var9 < var8) && (var10 < var8))) {
+			int var11 = 0;
+			int var12 = 0;
+			var11 = peek(var9);
+			var12 = peek(var10);
+			if ((var11 <= var12)) {
+				push(var11);
+				var9 = (var9 + 2);
 			} else {
-				push(var10);
-				var8 = (var8 + 2);
+				push(var12);
+				var10 = (var10 + 2);
 			}
 		}
-		int var11 = 0;
-		if ((var7 < var6)) {
-			var11 = var7;
+		int var13 = 0;
+		if ((var9 < var8)) {
+			var13 = var9;
 		} else {
-			var11 = var8;
+			var13 = var10;
 		}
-		int var12 = 0;
-		for (var12 = var11; (var12 < var6); var12 = (var12 + 2)) {
-			push(peek(var12));
+		int var14 = 0;
+		for (var14 = var13; (var14 < var8); var14 = (var14 + 2)) {
+			push(peek(var14));
 		}
-		for (var12 = 0; (var12 < var6); var12 = (var12 + 1)) {
+		for (var14 = 0; (var14 < var8); var14 = (var14 + 1)) {
 			pop();
 		}
 	}
 }
 
-void->int filter SortInput(int var13)
+void->int filter filt15(int var3)
 {
-	work push var13 {
-		int var14 = 0;
-		for (var14 = 0; (var14 < var13); var14 = (var14 + 1)) {
-			push((var13 - var14));
+	work push var3 {
+		int var4 = 0;
+		for (var4 = 0; (var4 < var3); var4 = (var4 + 1)) {
+			push((var3 - var4));
 		}
 	}
 }
-int->int pipeline Sorter(int var15)
+int->int pipeline filt16(int var5)
 {
-	if ((var15 > 2)) {
+	if ((var5 > 2)) {
 		add splitjoin {
 			split roundrobin();
-			add Sorter((var15 / 2));
-			add Sorter((var15 / 2));
+			add filt16((var5 / 2));
+			add filt16((var5 / 2));
 			join roundrobin();
 		}
 	}
-	add Merger(var15);
+	add filt18(var5);
 }
 
 void->void pipeline MergeSort()
 {
 	int var1 = 16;
 	int var2 = 4;
-	add SortInput((var1 / var2));
-	add Sorter(var1);
-	add IntPrinter();
+	add filt15((var1 / var2));
+	add filt16(var1);
+	add filt17();
 }
 

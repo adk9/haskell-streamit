@@ -21,6 +21,7 @@ import Data.Unique
 import Control.Monad hiding (join)
 import Control.Monad.Trans
 import qualified Control.Monad.State as S
+import System.Mem.StableName
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
@@ -37,7 +38,7 @@ data StatementS where
   Chain     :: StatementS -> StatementS -> StatementS
   Empty     :: StatementS
 
-instance Eq (IO StatementS) where (==) _ _ = True
+instance Eq (StatementS) where (==) _ _ = True
 
 data Splitter = RoundrobinS
 
@@ -87,29 +88,38 @@ put :: Monad m => (Int, StatementS) -> StreamItT m ()
 put s = StreamItT $ \ _ -> return ((), s)
 
 class AddE a where
-  add' :: AllE b => TypeSig -> Name -> a -> [E b] -> StreamIt ()
-  add  :: TypeSig -> Name -> a -> StreamIt ()
+  add' :: AllE b => TypeSig -> a -> [E b] -> StreamIt ()
+  add  :: TypeSig -> a -> StreamIt ()
   info :: TypeSig -> Name -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 
 instance AddE (Filter ()) where
-  add' a b c d = addNode $ AddS a b c d
-  add  a b c = addNode $ AddS a b c ([]::[E Int])
+  add' a b c = do
+    n <- lift $ makeStableName b
+    addNode $ AddS a ("filt" ++ show (hashStableName n)) b c
+  add  a b = do
+    n <- lift $ makeStableName b
+    addNode $ AddS a ("filt" ++ show (hashStableName n)) b ([]::[E Int])
   info a b c = do
     (f, g) <- S.get
-    if (elem (a, b, execStmt c) f)
+    cs <- liftIO $ execStmt c
+    if (elem (a, b, cs) f)
       then return ()
-      else S.put ((a, b, execStmt c) : f, g)
+      else S.put ((a, b, cs) : f, g)
 
 instance AddE (StreamIt ()) where
-  add' a b c d = addNode $ AddS a b c d
-  add  a b c = addNode $ AddS a b c ([]::[E Int])
+  add' a b c = do
+    n <- lift $ makeStableName b
+    addNode $ AddS a ("filt" ++ show (hashStableName n)) b c
+  add  a b = do
+    n <- lift $ makeStableName b
+    addNode $ AddS a ("filt" ++ show (hashStableName n)) b ([]::[E Int])
   info a b c = do
     (f, g) <- S.get
-    cs <- lift $ execStream c
-    if (elem (a, b, execStream c) g)
+    cs <- liftIO $ execStream c
+    if (elem (a, b, cs) g)
       then return ()
       else do
-      S.put (f, (a, b, execStream c) : g)
+      S.put (f, (a, b, cs) : g)
       findDefs cs
 
 instance CoreE (StreamIt) where
@@ -175,7 +185,7 @@ split s = addNode $ Split s
 join :: Joiner -> StreamIt ()
 join j = addNode $ Join j
 
-type GraphInfo = (TypeSig, Name, IO StatementS)
+type GraphInfo = (TypeSig, Name, StatementS)
 
 findDefs :: StatementS -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 findDefs a = case a of

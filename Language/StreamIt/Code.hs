@@ -16,7 +16,7 @@ code ty name node = do
   (fs, gs) <- S.execStateT (findDefs node) ([],[])
   filters <- mapM codeFilter fs
   graphs <- mapM codeGraph gs
-  mains <- codeGraph (ty, name, return node)
+  mains <- codeGraph (ty, name, node)
   writeFile (name ++ ".str") $
     (intercalate "\n\n" filters)
     ++ "\n" ++ (intercalate "\n\n" graphs)
@@ -25,45 +25,43 @@ code ty name node = do
 
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: GraphInfo -> IO String
-codeGraph (ty, name, sn) = do
-  s <- sn
-  case s of
-    DeclS (V inp n v) -> if inp
-                         then return ""
-                         else return (showConstType (const' v) ++ " " ++ n
-                                      ++ " = " ++ showConst (const' v) ++ ";\n")
-    AssignS a b       -> return (show a ++ " = " ++ codeExpr b ++ ";")
-    BranchS a b Empty -> do
-      bs <- codeGraph (ty, name, return b)
-      return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "}\n")
-    BranchS a b c     -> do
-      bs <- codeGraph (ty, name, return b)
-      cs <- codeGraph (ty, name, return c)
-      return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "} else {\n"
-              ++ indent cs ++ "}\n")
-    AddS _ n _ args   -> return ("add " ++ n ++ "("
-                                 ++ (intercalate ", " $ map codeExpr args) ++ ");\n")
-    Pipeline False a  -> do
-      as <- codeGraph (ty, name, return a)
-      return (ty ++ " pipeline " ++ name ++ "("
-              ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
-              ++ indent as ++ "}\n")
-    Pipeline True a   -> do
-      as <- codeGraph (ty, name, return a)
-      return ("add pipeline {\n" ++ indent as ++ "}\n")
-    SplitJoin False a -> do
-      as <- codeGraph (ty, name, return a)
-      return (ty ++ " splitjoin " ++ name ++ " {\n" ++ indent as ++ "}\n")
-    SplitJoin True a  -> do
-      as <- codeGraph (ty, name, return a)
-      return ("add splitjoin {\n" ++ indent as ++ "}\n")
-    Split a           -> return ("split " ++ show a ++ ";\n")
-    Join a            -> return ("join " ++ show a ++ ";\n")
-    Chain a b         -> do
-      as <- codeGraph (ty, name, return a) 
-      bs <- codeGraph (ty, name, return b)
-      return (as ++ bs)
-    Empty             -> return ""
+codeGraph (ty, name, sn) = case sn of
+  DeclS (V inp n v) -> if inp
+                       then return ""
+                       else return (showConstType (const' v) ++ " " ++ n
+                                    ++ " = " ++ showConst (const' v) ++ ";\n")
+  AssignS a b       -> return (show a ++ " = " ++ codeExpr b ++ ";")
+  BranchS a b Empty -> do
+    bs <- codeGraph (ty, name, b)
+    return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "}\n")
+  BranchS a b c     -> do
+    bs <- codeGraph (ty, name, b)
+    cs <- codeGraph (ty, name, c)
+    return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "} else {\n"
+            ++ indent cs ++ "}\n")
+  AddS _ n _ args   -> return ("add " ++ n ++ "("
+                               ++ (intercalate ", " $ map codeExpr args) ++ ");\n")
+  Pipeline False a  -> do
+    as <- codeGraph (ty, name, a)
+    return (ty ++ " pipeline " ++ name ++ "("
+            ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
+            ++ indent as ++ "}\n")
+  Pipeline True a   -> do
+    as <- codeGraph (ty, name, a)
+    return ("add pipeline {\n" ++ indent as ++ "}\n")
+  SplitJoin False a -> do
+    as <- codeGraph (ty, name, a)
+    return (ty ++ " splitjoin " ++ name ++ " {\n" ++ indent as ++ "}\n")
+  SplitJoin True a  -> do
+    as <- codeGraph (ty, name, a)
+    return ("add splitjoin {\n" ++ indent as ++ "}\n")
+  Split a           -> return ("split " ++ show a ++ ";\n")
+  Join a            -> return ("join " ++ show a ++ ";\n")
+  Chain a b         -> do
+    as <- codeGraph (ty, name, a) 
+    bs <- codeGraph (ty, name, b)
+    return (as ++ bs)
+  Empty             -> return ""
 
 -- | Walk down the Stream AST and find the declared inputs to print.
 codeInputS :: StatementS -> [String]
@@ -81,11 +79,9 @@ codeInputS a = case a of
 
 -- | Generate StreamIt code inside a filter.
 codeFilter :: FilterInfo -> IO String
-codeFilter (ty, name, stmt) = do
-  s <- stmt
-  return (ty ++ " filter " ++ name ++ "("
-          ++ (intercalate ", " $ codeInput s) ++ ")\n{\n"
-          ++ indent (codeStmt name s) ++ "}")
+codeFilter (ty, name, stmt) = return (ty ++ " filter " ++ name ++ "("
+                                      ++ (intercalate ", " $ codeInput stmt)
+                                      ++ ")\n{\n" ++ indent (codeStmt name stmt) ++ "}")
 
 -- | Walk down the Filter AST and find the declared inputs to print.
 codeInput :: Statement -> [String]

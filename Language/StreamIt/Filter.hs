@@ -38,7 +38,7 @@ data Statement where
   Println  :: Statement -> Statement
   Null     :: Statement
 
-instance Eq (IO Statement) where (==) _ _ = True
+instance Eq (Statement) where (==) _ _ = True
 
 -- | The Filter monad holds StreamIt filter statements.
 newtype FilterT m a = FilterT {runFilterT :: ((Int, Statement) -> m (a, (Int, Statement)))}
@@ -75,7 +75,7 @@ get = FilterT $ \ a -> return (a, a)
 put :: Monad m => (Int, Statement) -> FilterT m ()
 put s = FilterT $ \ _ -> return ((), s)
 
-type FilterInfo = (TypeSig, Name, IO Statement)
+type FilterInfo = (TypeSig, Name, Statement)
 
 instance CoreE (Filter) where
   var input init = do

@@ -1,11 +1,11 @@
-int->void filter IntPrinter()
+int->void filter filt19()
 {
 	work pop 1 {
 		println(pop());
 	}
 }
 
-void->int filter IntSource()
+void->int filter filt18()
 {
 	int var1 = 0;
 	init {
@@ -19,7 +19,7 @@ void->int filter IntSource()
 
 void->void pipeline HelloWorld()
 {
-	add IntSource();
-	add IntPrinter();
+	add filt18();
+	add filt19();
 }
 

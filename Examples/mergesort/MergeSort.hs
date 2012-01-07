@@ -51,19 +51,19 @@ sorter = pipeline $ do
   n <- input int
   if_ (ref n >. 2) (splitjoin_ $ do
                        split roundrobin
-                       add' "int->int"  "Sorter" sorter [ref n / 2]
-                       add' "int->int"  "Sorter" sorter [ref n / 2]
+                       add' "int->int" sorter [ref n / 2]
+                       add' "int->int" sorter [ref n / 2]
                        join roundrobin)
-  add' "int->int" "Merger" merger [ref n]
+  add' "int->int" merger [ref n]
 
 mergeSort :: StreamIt ()
 mergeSort = pipeline $ do
   numInputs <- int' 16
   mult <- int' 4
 
-  add' "void->int" "SortInput"  sortInput [ref numInputs / ref mult]
-  add' "int->int"  "Sorter" sorter [ref numInputs]
-  add "int->void" "IntPrinter" intPrinter
+  add' "void->int" sortInput [ref numInputs / ref mult]
+  add' "int->int"  sorter [ref numInputs]
+  add "int->void"  intPrinter
 
 main :: IO ()
 main = do

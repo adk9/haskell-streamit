@@ -97,7 +97,7 @@ $(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 genStreamIt :: TypeSig -> Name -> StreamIt () -> IO (FilePath)
 genStreamIt ty name s = do
   st <- liftIO $ execStream s
-  fp <- code ty name st 
+  fp <- code ty name st
   putStrLn $ "Generated file " ++ fp ++ "."
   return fp
 
