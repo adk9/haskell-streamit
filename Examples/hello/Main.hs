@@ -4,4 +4,4 @@ module Main (main) where
 import HelloWorld (helloWorld)
 import Language.StreamIt
 
-main = runStreamIt $(compileStreamIt "void->void" "HelloWorld" helloWorld)
+main = runStreamIt $(compileStreamIt "HelloWorld" helloWorld)

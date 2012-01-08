@@ -1,5 +1,5 @@
 name:           haskell-streamit
-version:        0.2
+version:        0.3
 synopsis: 	A StreamIt EDSL in Haskell.
 description: 	StreamIt (<http://groups.csail.mit.edu/cag/streamit/>) is a
 		stream programming language designed for efficient execution

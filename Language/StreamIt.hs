@@ -5,7 +5,7 @@ module Language.StreamIt
   , V
   , AllE
   , NumE
-  , Name
+  , Void
   -- * Expressions
   -- ** Constants
   , true
@@ -81,6 +81,7 @@ module Language.StreamIt
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 import Data.Word
+import Data.Typeable
 import Control.Monad.Trans (MonadIO(..))
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
@@ -94,16 +95,16 @@ import Language.Haskell.TH.Lift.Extras
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
 $(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 
-genStreamIt :: TypeSig -> Name -> StreamIt () -> IO (FilePath)
-genStreamIt ty name s = do
+genStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
+genStreamIt name s = do
   st <- liftIO $ execStream s
-  fp <- code ty name st
+  fp <- code (showStreamItType s) name st
   putStrLn $ "Generated file " ++ fp ++ "."
   return fp
 
-compileStreamIt :: TypeSig -> Name -> StreamIt () -> Q Exp
-compileStreamIt ty name s = do
-  f <- liftIO $ genStreamIt ty name s
+compileStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q Exp
+compileStreamIt name s = do
+  f <- liftIO $ genStreamIt name s
   bs <- liftIO $ compileStrc f  
   [|(L.pack $(lift (L.unpack bs)))|]
 

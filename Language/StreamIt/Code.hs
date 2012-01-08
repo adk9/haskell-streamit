@@ -11,7 +11,7 @@ indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
 -- | Generate StreamIt program.
-code :: TypeSig -> Name -> StatementS -> IO (FilePath)
+code :: String -> Name -> StatementS -> IO (FilePath)
 code ty name node = do
   (fs, gs) <- S.execStateT (findDefs node) ([],[])
   filters <- mapM codeFilter fs
@@ -39,7 +39,7 @@ codeGraph (ty, name, sn) = case sn of
     cs <- codeGraph (ty, name, c)
     return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "} else {\n"
             ++ indent cs ++ "}\n")
-  AddS _ n _ args   -> return ("add " ++ n ++ "("
+  AddS n _ args     -> return ("add " ++ n ++ "("
                                ++ (intercalate ", " $ map codeExpr args) ++ ");\n")
   Pipeline False a  -> do
     as <- codeGraph (ty, name, a)
@@ -69,7 +69,7 @@ codeInputS a = case a of
   DeclS (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
   AssignS _ _       -> []
   BranchS _ b c     -> codeInputS b ++ codeInputS c
-  AddS _ _ _ _      -> []
+  AddS _ _ _        -> []
   Pipeline _ a      -> codeInputS a
   SplitJoin _ a     -> codeInputS a
   Split _           -> []
@@ -174,9 +174,12 @@ showConst a = case a of
   Bool  False -> "false"
   Int   a     -> show a
   Float a     -> show a
+  Void _      -> ""
+
 
 showConstType :: Const -> String
 showConstType a = case a of
   Bool  _ -> "boolean"
   Int   _ -> "int"
   Float _ -> "float"
+  Void _  -> "void"

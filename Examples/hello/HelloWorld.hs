@@ -2,7 +2,7 @@ module HelloWorld (helloWorld) where
 
 import Language.StreamIt
 
-intSource :: Filter ()
+intSource :: Filter Void Int ()
 intSource = do
   x <- int
   init' $ do
@@ -12,12 +12,12 @@ intSource = do
     incr x
     push(ref x)
 
-intPrinter :: Filter ()
+intPrinter :: Filter Int Void ()
 intPrinter = do
   work (0, 1, 0) $ do
     println $ pop
 
-helloWorld :: StreamIt ()
+helloWorld :: StreamIt Void Void ()
 helloWorld = pipeline $ do
-  add "void->int" intSource
-  add "int->void" intPrinter
+  add intSource
+  add intPrinter

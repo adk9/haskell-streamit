@@ -7,6 +7,7 @@ module Language.StreamIt.Core
   , AllE (..)
   , NumE
   , Const (..)
+  , Void
   , true
   , false
   , constant
@@ -24,9 +25,11 @@ module Language.StreamIt.Core
   , (>.)
   , (>=.)
   , mod_
+  , showTypeSig
   ) where
 
 import Data.Ratio
+import Data.Typeable
 
 --infixl 9 !, !.
 infixl 7 `mod_`
@@ -61,6 +64,16 @@ instance AllE Int where
 instance AllE Float where
   zero = 0
   const' = Float
+
+data Void
+instance Show Void where show _ = "Void"
+instance Eq Void where _ == _ = True
+instance Ord Void where _ <= _ = True
+instance Typeable Void where typeOf _ = mkTyConApp (mkTyCon "Void") []
+
+instance AllE Void where
+  zero = undefined
+  const' = Void
 
 class    AllE a => NumE a
 instance NumE Int
@@ -131,6 +144,7 @@ data Const
   = Bool   Bool
   | Int    Int
   | Float  Float
+  | Void   Void
   deriving (Show, Eq, Ord)
 
 -- | True term.
@@ -201,3 +215,7 @@ mod_ a b = Mod a b
 -- | References a variable to be used in an expression ('E').
 ref :: AllE a => V a -> E a
 ref = Ref
+
+-- | Return the type signature of a Filter or StreamIt monad
+showTypeSig :: Typeable a => a -> String
+showTypeSig = show . typeOf
