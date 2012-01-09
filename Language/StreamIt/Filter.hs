@@ -129,7 +129,7 @@ decr :: (AllE a, AllE b) => V Int -> Filter a b ()
 decr a = a <== ref a - 1
 
 -- | Push
-push :: (AllE a, AllE b, AllE c) => E c -> Filter a b ()
+push :: (AllE a, AllE b) => E b -> Filter a b ()
 push a = statement $ Push a
 
 -- | Peek
