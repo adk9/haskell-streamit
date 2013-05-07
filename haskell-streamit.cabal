@@ -40,7 +40,7 @@ library
 
   build-depends:
     base >= 4.0     && < 5,
-    mtl  >= 1.1.0.1 && < 2.1,
+    mtl  >= 1.1.0.1,
     temporary >= 1.0 && < 1.2,
     process, directory,
     bytestring, th-lift,
