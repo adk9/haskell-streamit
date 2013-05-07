@@ -18,14 +18,10 @@ codeTBB ty name node = do
   graphs <- mapM codeGraph gs
   mains <- codeGraph (ty, name, node)
   writeFile (name ++ ".cpp") $
-    "#include \"tbb/pipeline.h\"\n"
-    ++ "#include \"tbb/tick_count.h\"\n"
-    ++ "#include \"tbb/task_scheduler_init.h\"\n"
-    ++ "#include \"tbb/tbb_allocator.h\"\n"
-    ++ "#include <cstring>\n"
-    ++ "#include <cstdlib>\n"
-    ++ "#include <cstdio>\n"
-    ++ "#include <cctype>\n\n"
+    "#include \"tbb/pipeline.h\"\n#include \"tbb/task_scheduler_init.h\"\n"
+    ++ "#include \"tbb/tbb_allocator.h\"\n#include <iostream>\n\n"
+    ++ "using namespace std;\nstatic int iter;\n"
+    ++ "#define tbb_return(val){if (iter++ >= 10000)return NULL;return val;}\n\n"
     ++ (intercalate "\n\n" filters)
     ++ "\n" ++ (intercalate "\n\n" graphs)
     ++ "\n" ++ mains ++ "\n"
@@ -47,13 +43,17 @@ codeGraph (ty, name, sn) = case sn of
     cs <- codeGraph (ty, name, c)
     return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "} else {\n"
             ++ indent cs ++ "}\n")
-  AddS n _ args     -> return ("add " ++ n ++ "("
-                               ++ (intercalate ", " $ map codeExpr args) ++ ");\n")
+  AddS n _ args     -> return (n ++ " " ++ n ++ "_;\n"
+                               -- ++ "(" ++ (intercalate ", " $ map codeExpr args) ++ ");\n"
+                               ++ "pipeline.add_filter(" ++ n ++ "_);\n")
   Pipeline False a  -> do
     as <- codeGraph (ty, name, a)
-    return (ty ++ " pipeline " ++ name ++ "("
-            ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
-            ++ indent as ++ "}\n")
+    return ("int main(int argc, char* argv[]) {\n\t"
+            ++ "tbb::task_scheduler_init init_serial(1);\n"
+            -- ++ "void pipeline" ++ name ++ "("
+            -- ++ (intercalate ", " $ codeInputS a) ++ ")\n{\n"
+            ++ "\ttbb::pipeline pipeline;\n" ++ indent as
+            ++ "\tpipeline.run(1);\n}\n")
   Pipeline True a   -> do
     as <- codeGraph (ty, name, a)
     return ("add pipeline {\n" ++ indent as ++ "}\n")
@@ -87,9 +87,16 @@ codeInputS a = case a of
 
 -- | Generate StreamIt code inside a filter.
 codeFilter :: FilterInfo -> IO String
-codeFilter (ty, name, stmt) = return (ty ++ " filter " ++ name ++ "("
+codeFilter (ty, name, stmt) = return ("class " ++ name ++ ": public tbb::filter {\n"
+                                      ++ "public:\n\t" ++ name ++ "();\nprivate:\n"
                                       ++ (intercalate ", " $ codeInput stmt)
-                                      ++ ")\n{\n" ++ indent (codeStmt name stmt) ++ "}")
+                                      ++ indent (findDecls stmt)
+                                      ++ "\tvoid* operator()(void* item);\n};\n\n"
+                                      ++ (if (noInit stmt)
+                                          then (name ++ "::" ++ name
+                                                ++ "() : tbb::filter(serial_in_order) {}\n\n")
+                                          else "")
+                                      ++ (codeStmt name stmt))
 
 -- | Walk down the Filter AST and find the declared inputs to print.
 codeInput :: Statement -> [String]
@@ -111,9 +118,7 @@ instance Show Statement where show = codeStmt "none"
 -- | Generate code corresponding to a StreamIt statement.
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
-  Decl (V inp n v) -> if inp then ""
-                      else showConstType (const' v) ++ " " ++ n ++ " = "
-                           ++ showConst (const' v) ++ ";\n"
+  Decl (V _ _ _) -> ""
   Assign _ _       -> codeStmtExpr a ++ ";\n"
   Branch a b Null  -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c     -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b)
@@ -124,14 +129,16 @@ codeStmt name a = case a of
                       ++ codeStmtExpr c ++ ") {\n" ++ indent (codeStmt name d)
                       ++ "}\n"
   Sequence a b     -> codeStmt name a ++ codeStmt name b
-  Init a           -> "init {\n" ++ indent (codeStmt name a) ++ "}\n"
-  Work (a, b, c) d -> "work" ++ showFlowRate " push " a
+  Init a           -> name ++ "::" ++ name ++ "() : tbb::filter(serial_in_order) {\n"
+                      ++ indent (codeStmt name a) ++ "}\n\n"
+  Work (a, b, c) d -> "void* " ++ name ++ "::operator()(void* item) {\n"
+                      ++ "/*" ++ showFlowRate " push " a
                       ++ showFlowRate " pop " b
-                      ++ showFlowRate " peek " c
-                      ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
-  Push a           -> "push(" ++ codeExpr a ++ ");\n"
+                      ++ showFlowRate " peek " c ++ "*/\n"
+                      ++ indent (codeStmt name d) ++ "}\n"
+  Push a           -> "tbb_return(&" ++ codeExpr a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
-  Println a        -> "println(" ++ codeStmtExpr a ++ ");\n"
+  Println a        -> "std::cout << " ++ codeStmtExpr a ++ " << std::endl;\n"
   Null             -> ""
   where
     codeStmtExpr :: Statement -> String
@@ -139,7 +146,7 @@ codeStmt name a = case a of
       Assign a b     -> show a ++ " = " ++ codeExpr b
       Sequence a b   -> codeStmtExpr a ++ codeStmtExpr b
       Push _         -> ""
-      Pop	     -> "pop()"
+      Pop	     -> "*static_cast<int*>(item)" -- FIXME FIXME FIXME!!
       Decl _	     -> ""
       Branch _ _ _   -> ""
       Loop _ _ _ _   -> ""
@@ -152,6 +159,24 @@ codeStmt name a = case a of
     showFlowRate token a = case a of
       Const 0 -> ""
       _       -> token ++ codeExpr a
+
+findDecls :: Statement -> String
+findDecls a = case a of
+  Decl (V inp n v) -> if inp then ""
+                      else showConstType (const' v) ++ " " ++ n ++ ";\n"
+  Branch _ b c     -> findDecls b ++ findDecls c
+  Loop _ _ _ d     -> findDecls d
+  Init a           -> findDecls a
+  Sequence a b     -> findDecls a ++ findDecls b
+  _ -> ""
+
+noInit :: Statement -> Bool
+noInit a = case a of
+  Init _           -> False
+  Branch _ b c     -> noInit b && noInit c
+  Loop _ _ _ d     -> noInit d
+  Sequence a b     -> noInit a && noInit b
+  _ -> True
 
 codeExpr :: E a -> String
 codeExpr a = case a of
@@ -187,7 +212,7 @@ showConst a = case a of
 
 showConstType :: Const -> String
 showConstType a = case a of
-  Bool  _ -> "boolean"
+  Bool  _ -> "bool"
   Int   _ -> "int"
   Float _ -> "float"
   Void _  -> "void"

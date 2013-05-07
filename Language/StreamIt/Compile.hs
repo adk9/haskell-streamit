@@ -1,5 +1,6 @@
 module Language.StreamIt.Compile
- ( compileStrc,
+ ( callStrc,
+   callTbb,
    runStreamIt
  ) where
 
@@ -18,8 +19,8 @@ import System.Posix.Files
 import System.Posix.Process
 
 -- | Compile the given StreamIt file (using strc) to a resulting executable
-compileStrc :: FilePath -> IO (L.ByteString)
-compileStrc file = do
+callStrc :: FilePath -> IO (L.ByteString)
+callStrc file = do
   withTempDirectory "." "streamit." $ \tdir -> do
     bracket getCurrentDirectory setCurrentDirectory
       (\_ -> do
@@ -41,3 +42,16 @@ runStreamIt bs = do
   pid <- forkProcess $ executeFile tf False args Nothing
   getProcessStatus True False pid
   removeFile tf
+
+-- | Compile a generated TBB C++ file (using g++)
+callTbb :: FilePath -> IO (L.ByteString)
+callTbb file = do
+  withTempDirectory "." "tbb." $ \tdir -> do
+    bracket getCurrentDirectory setCurrentDirectory
+      (\_ -> do
+          setCurrentDirectory tdir
+          exitCode <- rawSystem "g++" ["-O2 -DNDEBUG", "../" ++ file, "-ltbb -lrt"]
+          when (exitCode /= ExitSuccess) $
+            fail "g++ failed."
+          bs <- L.readFile "a.out"
+          return $ compress bs)

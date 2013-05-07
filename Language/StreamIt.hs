@@ -76,6 +76,7 @@ module Language.StreamIt
   , Target (..)
   , generate
   , genTBB
+  , compileTBB
   , genStreamIt
   , compileStreamIt
   , runStreamIt
@@ -109,13 +110,19 @@ generate tgt name s = do
 genTBB :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
 genTBB name s = generate TBB name s
 
+compileTBB :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q Exp
+compileTBB name s = do
+  f <- liftIO $ generate TBB name s
+  bs <- liftIO $ callTbb f
+  [|(L.pack $(lift (L.unpack bs)))|]
+
 genStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
 genStreamIt name s = generate StreamIt name s
 
 compileStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q Exp
 compileStreamIt name s = do
-  f <- liftIO $ genStreamIt name s
-  bs <- liftIO $ compileStrc f  
+  f <- liftIO $ generate StreamIt name s
+  bs <- liftIO $ callStrc f
   [|(L.pack $(lift (L.unpack bs)))|]
 
 instance MonadIO Q where
