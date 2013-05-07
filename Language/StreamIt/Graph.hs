@@ -21,7 +21,6 @@ module Language.StreamIt.Graph
 import Data.Char
 import Data.Typeable
 import Data.Unique
-import Control.Monad hiding (join)
 import Control.Monad.Trans
 import qualified Control.Monad.State as S
 import System.Mem.StableName
@@ -62,7 +61,7 @@ type StreamIt a b = StreamItT a b IO
 
 instance (Typeable a, Typeable b) => Typeable1 (StreamIt a b) where
   typeOf1 s = let
-    tyCon = mkTyCon "Language.StreamIt.Graph.StreamIt"
+    tyCon = mkTyCon3 "Language" "StreamIt" "Graph.StreamIt"
     (a, b) = peel s
 
     peel :: StreamIt a b m -> (a, b)

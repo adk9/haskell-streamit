@@ -73,8 +73,11 @@ module Language.StreamIt
   , join
   , roundrobin
   -- * StreamIt Code Generation
-  , compileStreamIt
+  , Target (..)
+  , generate
+  , genTBB
   , genStreamIt
+  , compileStreamIt
   , runStreamIt
   ) where
 
@@ -86,7 +89,7 @@ import Control.Monad.Trans (MonadIO(..))
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
 import Language.StreamIt.Graph
-import Language.StreamIt.Code
+import Language.StreamIt.Backend
 import Language.StreamIt.Compile
 import Language.Haskell.TH hiding (Name)
 import Language.Haskell.TH.Syntax hiding (Name)
@@ -95,12 +98,19 @@ import Language.Haskell.TH.Lift.Extras
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
 $(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 
-genStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
-genStreamIt name s = do
+generate :: (AllE a, AllE b, Typeable a, Typeable b) => 
+            Target -> Name -> StreamIt a b () -> IO (FilePath)
+generate tgt name s = do
   st <- liftIO $ execStream s
-  fp <- code (showStreamItType s) name st
+  fp <- code tgt (showStreamItType s) name st
   putStrLn $ "Generated file " ++ fp ++ "."
   return fp
+
+genTBB :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
+genTBB name s = generate TBB name s
+
+genStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
+genStreamIt name s = generate StreamIt name s
 
 compileStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q Exp
 compileStreamIt name s = do

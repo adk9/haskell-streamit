@@ -23,7 +23,6 @@ module Language.StreamIt.Filter
 import Data.Char
 import Data.Typeable
 import Data.Unique
-import Control.Monad
 import Control.Monad.Trans
 
 import Language.StreamIt.Core
@@ -50,7 +49,7 @@ type Filter a b = FilterT a b IO
 
 instance (Typeable a, Typeable b) => Typeable1 (Filter a b) where
   typeOf1 s = let
-    tyCon = mkTyCon "Language.StreamIt.Filter.Filter"
+    tyCon = mkTyCon3 "Language" "StreamIt" "Filter.Filter"
     (a, b) = peel s
 
     peel :: Filter a b m -> (a, b)

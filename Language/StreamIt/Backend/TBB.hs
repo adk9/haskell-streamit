@@ -1,4 +1,4 @@
-module Language.StreamIt.Code (code) where
+module Language.StreamIt.Backend.TBB (codeTBB) where
 
 import Data.List
 import qualified Control.Monad.State as S
@@ -11,17 +11,25 @@ indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
 -- | Generate StreamIt program.
-code :: String -> Name -> StatementS -> IO (FilePath)
-code ty name node = do
+codeTBB :: String -> Name -> StatementS -> IO (FilePath)
+codeTBB ty name node = do
   (fs, gs) <- S.execStateT (findDefs node) ([],[])
   filters <- mapM codeFilter fs
   graphs <- mapM codeGraph gs
   mains <- codeGraph (ty, name, node)
-  writeFile (name ++ ".str") $
-    (intercalate "\n\n" filters)
+  writeFile (name ++ ".cpp") $
+    "#include \"tbb/pipeline.h\"\n"
+    ++ "#include \"tbb/tick_count.h\"\n"
+    ++ "#include \"tbb/task_scheduler_init.h\"\n"
+    ++ "#include \"tbb/tbb_allocator.h\"\n"
+    ++ "#include <cstring>\n"
+    ++ "#include <cstdlib>\n"
+    ++ "#include <cstdio>\n"
+    ++ "#include <cctype>\n\n"
+    ++ (intercalate "\n\n" filters)
     ++ "\n" ++ (intercalate "\n\n" graphs)
     ++ "\n" ++ mains ++ "\n"
-  return (name ++ ".str")
+  return (name ++ ".cpp")
 
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: GraphInfo -> IO String

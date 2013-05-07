@@ -69,7 +69,7 @@ data Void
 instance Show Void where show _ = "Void"
 instance Eq Void where _ == _ = True
 instance Ord Void where _ <= _ = True
-instance Typeable Void where typeOf _ = mkTyConApp (mkTyCon "Void") []
+instance Typeable Void where typeOf _ = mkTyConApp (mkTyCon3 "" "" "Void") []
 
 instance AllE Void where
   zero = undefined

@@ -1,5 +1,5 @@
 name:           haskell-streamit
-version:        0.3
+version:        0.4
 synopsis: 	A StreamIt EDSL in Haskell.
 description: 	StreamIt (<http://groups.csail.mit.edu/cag/streamit/>) is a
 		stream programming language designed for efficient execution
@@ -9,14 +9,14 @@ description: 	StreamIt (<http://groups.csail.mit.edu/cag/streamit/>) is a
 		COTS workstations. This is a shallow-embedding of StreamIt in
                 Haskell which invokes the StreamIt compiler to generate a 
                 a stream graph from the haskell-streamit EDSL program.
-copyright: 	Copyright (c) 2011 Abhishek Kulkarni
+copyright: 	Copyright (c) 2013 Abhishek Kulkarni
 author:		Abhishek Kulkarni <adkulkar@indiana.edu>
 maintainer:	Abhishek Kulkarni <adkulkar@indiana.edu>
 category: 	Language, Parallelism
 license: 	BSD3
 license-file:   LICENSE
 stability: 	Experimental
-homepage:       http://adk9.github.com/streamit-edsl
+homepage:       http://adk9.github.com/haskell-streamit
 build-type:	Simple
 cabal-Version:	>=1.6
 tested-with:    GHC==7.0.2
@@ -26,15 +26,17 @@ extra-source-files:
 
 source-repository head
   type:     git
-  location: git://github.com/adk9/streamit-edsl.git
+  location: git://github.com/adk9/haskell-streamit.git
 
 library
   exposed-modules:
     Language.StreamIt
+    Language.StreamIt.Backend
+    Language.StreamIt.Backend.StreamIt
+    Language.StreamIt.Backend.TBB
     Language.StreamIt.Core
     Language.StreamIt.Filter
     Language.StreamIt.Graph
-    Language.StreamIt.Code
     Language.StreamIt.Compile
     Language.Haskell.TH.Lift.Extras
 
