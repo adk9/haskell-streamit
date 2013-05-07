@@ -9,6 +9,7 @@ import Control.Exception
 import qualified Data.ByteString.Lazy as L
 import Codec.Compression.GZip
 import System.Cmd
+import System.Environment
 import System.Exit
 import System.Directory
 import System.IO
@@ -25,7 +26,7 @@ compileStrc file = do
           setCurrentDirectory tdir
           exitCode <- rawSystem "strc" ["../" ++ file]
           when (exitCode /= ExitSuccess) $
-            fail "strc faied."
+            fail "strc failed."
           bs <- L.readFile "a.out"
           return $ compress bs)
 
@@ -36,6 +37,7 @@ runStreamIt bs = do
   L.hPut th (decompress bs)
   setFileMode tf ownerExecuteMode
   hClose th
-  pid <- forkProcess $ executeFile tf False [] Nothing
+  args <- getArgs
+  pid <- forkProcess $ executeFile tf False args Nothing
   getProcessStatus True False pid
   removeFile tf
