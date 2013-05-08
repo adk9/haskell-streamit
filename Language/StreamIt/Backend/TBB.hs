@@ -89,7 +89,6 @@ codeInputS a = case a of
 codeFilter :: FilterInfo -> IO String
 codeFilter (ty, name, stmt) = return ("class " ++ name ++ ": public tbb::filter {\n"
                                       ++ "public:\n\t" ++ name ++ "();\nprivate:\n"
-                                      ++ (intercalate ", " $ codeInput stmt)
                                       ++ indent (findDecls stmt)
                                       ++ "\tvoid* operator()(void* item);\n};\n\n"
                                       ++ (if (noInit stmt)
@@ -99,26 +98,22 @@ codeFilter (ty, name, stmt) = return ("class " ++ name ++ ": public tbb::filter 
                                       ++ (codeStmt name stmt))
 
 -- | Walk down the Filter AST and find the declared inputs to print.
-codeInput :: Statement -> [String]
-codeInput a = case a of
-  Decl (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  Assign _ _       -> []
-  Branch _ b c     -> codeInput b ++ codeInput c
-  Loop _ _ _ a     -> codeInput a
-  Sequence a b     -> codeInput a ++ codeInput b
-  Init a           -> codeInput a
-  Work _ a         -> codeInput a
-  Push _           -> []
-  Pop              -> []
-  Println _        -> []
-  Null             -> []
+findDecls :: Statement -> String
+findDecls a = case a of
+  Decl (V inp n v) -> showConstType (const' v) ++ " " ++ n ++ ";\n"
+  Branch _ b c     -> findDecls b ++ findDecls c
+  Loop _ _ _ a     -> findDecls a
+  Sequence a b     -> findDecls a ++ findDecls b
+  Init a           -> findDecls a
+  _ -> ""
 
 instance Show Statement where show = codeStmt "none"
 
 -- | Generate code corresponding to a StreamIt statement.
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
-  Decl (V _ _ _) -> ""
+  Decl (V inp n v) -> if inp then ""
+                      else showConstType (const' v) ++ " " ++ n ++ ";\n"
   Assign _ _       -> codeStmtExpr a ++ ";\n"
   Branch a b Null  -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
   Branch a b c     -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b)
@@ -159,16 +154,6 @@ codeStmt name a = case a of
     showFlowRate token a = case a of
       Const 0 -> ""
       _       -> token ++ codeExpr a
-
-findDecls :: Statement -> String
-findDecls a = case a of
-  Decl (V inp n v) -> if inp then ""
-                      else showConstType (const' v) ++ " " ++ n ++ ";\n"
-  Branch _ b c     -> findDecls b ++ findDecls c
-  Loop _ _ _ d     -> findDecls d
-  Init a           -> findDecls a
-  Sequence a b     -> findDecls a ++ findDecls b
-  _ -> ""
 
 noInit :: Statement -> Bool
 noInit a = case a of
