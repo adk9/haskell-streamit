@@ -1,10 +1,10 @@
 module Language.StreamIt.Core
   ( Exp (..)
-  , V (..)
+  , Var (..)
   , CoreE (..)
   , TypeSig
   , Name
-  , AllE (..)
+  , Elt (..)
   , NumE
   , Const (..)
   , Void
@@ -43,25 +43,25 @@ type TypeSig = String
 type Name = String
 
 -- | A mutable variable.
-data V a
-  = V Bool Name a
+data Var a
+  = Var Bool Name a
   deriving Eq
 
-instance Show (V a) where show (V _ n _) = n
+instance Show (Var a) where show (Var _ n _) = n
 
-class Eq a => AllE a where
+class Eq a => Elt a where
   zero   :: a
   const' :: a -> Const
 
-instance AllE Bool where
+instance Elt Bool where
   zero = False
   const' = Bool
 
-instance AllE Int where
+instance Elt Int where
   zero = 0
   const' = Int
 
-instance AllE Float where
+instance Elt Float where
   zero = 0
   const' = Float
 
@@ -71,39 +71,39 @@ instance Eq Void where _ == _ = True
 instance Ord Void where _ <= _ = True
 instance Typeable Void where typeOf _ = mkTyConApp (mkTyCon3 "" "" "Void") []
 
-instance AllE Void where
+instance Elt Void where
   zero = undefined
   const' = Void
 
-class    AllE a => NumE a
+class    Elt a => NumE a
 instance NumE Int
 instance NumE Float
 
 -- | Generic variable declarations.
 class Monad a => CoreE a where
-  var :: AllE b  => Bool -> b -> a (V b)
-  input :: AllE b => a (V b) -> a (V b)
+  var :: Elt b  => Bool -> b -> a (Var b)
+  input :: Elt b => a (Var b) -> a (Var b)
 
   -- Float variable declarations.
-  float :: a (V Float)
-  float' :: Float -> a (V Float)
+  float :: a (Var Float)
+  float' :: Float -> a (Var Float)
   -- Int variable declarations.
-  int :: a (V Int)
-  int' :: Int -> a (V Int)
+  int :: a (Var Int)
+  int' :: Int -> a (Var Int)
   -- Bool variable declarations.
-  bool :: a (V Bool)
-  bool' :: Bool -> a (V Bool)
+  bool :: a (Var Bool)
+  bool' :: Bool -> a (Var Bool)
   -- Assignments.
-  (<==) :: AllE b => V b -> Exp b -> a ()
+  (<==) :: Elt b => Var b -> Exp b -> a ()
   -- Conditional statements.
   ifelse :: Exp Bool -> a () -> a () -> a ()
   if_ :: Exp Bool -> a () -> a ()
 
 -- | A logical, arithmetic, comparative, or conditional expression.
 data Exp a where
-  Ref   :: AllE a => V a -> Exp a
-  Peek  :: AllE a => Exp a -> Exp a
-  Const :: AllE a => a -> Exp a
+  Ref   :: Elt a => Var a -> Exp a
+  Peek  :: Elt a => Exp a -> Exp a
+  Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
   Sub   :: NumE a => Exp a -> Exp a -> Exp a
   Mul   :: NumE a => Exp a -> Exp a -> Exp a
@@ -112,17 +112,17 @@ data Exp a where
   Not   :: Exp Bool -> Exp Bool
   And   :: Exp Bool -> Exp Bool -> Exp Bool
   Or    :: Exp Bool -> Exp Bool -> Exp Bool
-  Eq    :: AllE a => Exp a -> Exp a -> Exp Bool
+  Eq    :: Elt a => Exp a -> Exp a -> Exp Bool
   Lt    :: NumE a => Exp a -> Exp a -> Exp Bool
   Gt    :: NumE a => Exp a -> Exp a -> Exp Bool
   Le    :: NumE a => Exp a -> Exp a -> Exp Bool
   Ge    :: NumE a => Exp a -> Exp a -> Exp Bool
-  Mux   :: AllE a => Exp Bool -> Exp a -> Exp a -> Exp a
+  Mux   :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
 
 instance Show   (Exp a) where show = undefined
 instance Eq   (Exp a) where (==) = undefined
 
-instance (Num a, AllE a, NumE a) => Num (Exp a) where
+instance (Num a, Elt a, NumE a) => Num (Exp a) where
   (+) = Add
   (-) = Sub
   (*) = Mul
@@ -156,7 +156,7 @@ false :: Exp Bool
 false = Const False
 
 -- | Arbitrary constants.
-constant :: AllE a => a -> Exp a
+constant :: Elt a => a -> Exp a
 constant = Const
 
 -- | Logical negation.
@@ -184,11 +184,11 @@ or_ = foldl (||.) false
 a --> b = not_ a ||. b
 
 -- | Equal.
-(==.) :: AllE a => Exp a -> Exp a -> Exp Bool
+(==.) :: Elt a => Exp a -> Exp a -> Exp Bool
 (==.) = Eq
 
 -- | Not equal.
-(/=.) :: AllE a => Exp a -> Exp a -> Exp Bool
+(/=.) :: Elt a => Exp a -> Exp a -> Exp Bool
 a /=. b = not_ (a ==. b)
 
 -- | Less than.
@@ -213,7 +213,7 @@ mod_ _ 0 = error "divide by zero (mod_)"
 mod_ a b = Mod a b
 
 -- | References a variable to be used in an expression.
-ref :: AllE a => V a -> Exp a
+ref :: Elt a => Var a -> Exp a
 ref = Ref
 
 -- | Return the type signature of a Filter or StreamIt monad

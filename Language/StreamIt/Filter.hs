@@ -28,14 +28,14 @@ import Control.Monad.Trans
 import Language.StreamIt.Core
 
 data Statement where
-  Decl     :: AllE a => V a -> Statement
-  Assign   :: AllE a => V a -> Exp a -> Statement
+  Decl     :: Elt a => Var a -> Statement
+  Assign   :: Elt a => Var a -> Exp a -> Statement
   Branch   :: Exp Bool -> Statement -> Statement -> Statement
   Loop     :: Statement -> Exp Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
   Work     :: (Exp Int, Exp Int, Exp Int) -> Statement -> Statement
   Init     :: Statement -> Statement
-  Push     :: AllE a => Exp a -> Statement
+  Push     :: Elt a => Exp a -> Statement
   Pop      :: Statement
   Println  :: Statement -> Statement
   Null     :: Statement
@@ -57,37 +57,37 @@ instance (Typeable a, Typeable b) => Typeable1 (Filter a b) where
 
     in mkTyConApp tyCon [typeOf a, typeOf b]
 
-instance (AllE a, AllE b, Monad m) => Monad (FilterT a b m) where
+instance (Elt a, Elt b, Monad m) => Monad (FilterT a b m) where
   return a    = FilterT $ \ s -> return (a, s)
   (>>=) sf f  = FilterT $ \ s -> do (a1, s1) <- runFilterT sf s
                                     (a2, s2) <- runFilterT (f a1) s1
                                     return (a2, s2)
 
-instance (AllE a, AllE b) => MonadTrans (FilterT a b) where
+instance (Elt a, Elt b) => MonadTrans (FilterT a b) where
   lift m = FilterT $ \ s -> do
     a <- m
     return (a, s)
 
-instance (AllE a, AllE b, MonadIO m) => MonadIO (FilterT a b m) where
+instance (Elt a, Elt b, MonadIO m) => MonadIO (FilterT a b m) where
 	liftIO = lift . liftIO
 
-statement :: (AllE a, AllE b, Monad m) => Statement -> FilterT a b m ()
+statement :: (Elt a, Elt b, Monad m) => Statement -> FilterT a b m ()
 statement a = FilterT $ \ (id, statement) -> return ((), (id, Sequence statement a))
 
-evalStmt :: (AllE a, AllE b, Monad m) => Int -> FilterT a b m () -> m (Int, Statement)
+evalStmt :: (Elt a, Elt b, Monad m) => Int -> FilterT a b m () -> m (Int, Statement)
 evalStmt id (FilterT f) = do
   (_, x) <- f (id, Null)
   return x
 
-execStmt:: (AllE a, AllE b, Monad m) => FilterT a b m () -> m Statement 
+execStmt:: (Elt a, Elt b, Monad m) => FilterT a b m () -> m Statement 
 execStmt f = do
   (_, x) <- evalStmt 0 f
   return x
 
-get :: (AllE a, AllE b, Monad m) => FilterT a b m (Int, Statement)
+get :: (Elt a, Elt b, Monad m) => FilterT a b m (Int, Statement)
 get = FilterT $ \ a -> return (a, a)
 
-put :: (AllE a, AllE b, Monad m) => (Int, Statement) -> FilterT a b m ()
+put :: (Elt a, Elt b, Monad m) => (Int, Statement) -> FilterT a b m ()
 put s = FilterT $ \ _ -> return ((), s)
 
 type FilterInfo = (TypeSig, Name, Statement)
@@ -97,12 +97,12 @@ showFilterType s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail 
   where
     t = words $ showTypeSig s
 
-instance (AllE a, AllE b) => CoreE (Filter a b) where
+instance (Elt a, Elt b) => CoreE (Filter a b) where
   var input init = do
     (id, stmt) <- get
     n <- lift newUnique
-    put (id, Sequence stmt $ Decl (V input ("var" ++ show (hashUnique n)) init))
-    return $ V input ("var" ++ show (hashUnique n)) init
+    put (id, Sequence stmt $ Decl (Var input ("var" ++ show (hashUnique n)) init))
+    return $ Var input ("var" ++ show (hashUnique n)) init
   input _ = var True zero
   float = var False zero
   float' = var False
@@ -119,34 +119,34 @@ instance (AllE a, AllE b) => CoreE (Filter a b) where
     statement $ Branch cond stmt1 stmt2
   if_ cond stmt = ifelse cond stmt $ return ()
 
--- | Increments a V Int.
-incr :: (AllE a, AllE b) => V Int -> Filter a b ()
+-- | Increments a Var Int.
+incr :: (Elt a, Elt b) => Var Int -> Filter a b ()
 incr a = a <== ref a + 1
 
--- | Decrements a V Int.
-decr :: (AllE a, AllE b) => V Int -> Filter a b ()
+-- | Decrements a Var Int.
+decr :: (Elt a, Elt b) => Var Int -> Filter a b ()
 decr a = a <== ref a - 1
 
 -- | Push
-push :: (AllE a, AllE b) => Exp b -> Filter a b ()
+push :: (Elt a, Elt b) => Exp b -> Filter a b ()
 push a = statement $ Push a
 
 -- | Peek
-peek :: AllE a => Exp a -> Exp a
+peek :: Elt a => Exp a -> Exp a
 peek = Peek
 
 -- | Pop
-pop :: (AllE a, AllE b) => Filter a b ()
+pop :: (Elt a, Elt b) => Filter a b ()
 pop = statement $ Pop
 
 -- | Println
-println :: (AllE a, AllE b) => Filter a b () -> Filter a b ()
+println :: (Elt a, Elt b) => Filter a b () -> Filter a b ()
 println f = do
   s <- lift $ execStmt f
   statement $ Println s
 
 -- | Init
-init' :: (AllE a, AllE b) => Filter a b () -> Filter a b ()
+init' :: (Elt a, Elt b) => Filter a b () -> Filter a b ()
 init' s = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 s
@@ -154,7 +154,7 @@ init' s = do
   statement $ Init stmt1
 
 -- | Work
-work :: (AllE a, AllE b) => (Exp Int, Exp Int, Exp Int) -> Filter a b () -> Filter a b ()
+work :: (Elt a, Elt b) => (Exp Int, Exp Int, Exp Int) -> Filter a b () -> Filter a b ()
 work (push, pop, peek) s = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 s
@@ -162,7 +162,7 @@ work (push, pop, peek) s = do
   statement $ Work (push, pop, peek) stmt1
 
 -- | For loop.
-for_ :: (AllE a, AllE b) => (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
+for_ :: (Elt a, Elt b) => (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
 for_ (init, cond, inc) body = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 body
@@ -172,7 +172,7 @@ for_ (init, cond, inc) body = do
   statement $ Loop ini cond inc stmt1
 
 -- | While loop.
-while_ :: (AllE a, AllE b) => Exp Bool -> Filter a b () -> Filter a b ()
+while_ :: (Elt a, Elt b) => Exp Bool -> Filter a b () -> Filter a b ()
 while_ cond body = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 body

@@ -26,7 +26,7 @@ codeStreamIt ty name node = do
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: GraphInfo -> IO String
 codeGraph (ty, name, sn) = case sn of
-  DeclS (V inp n v) -> if inp
+  DeclS (Var inp n v) -> if inp
                        then return ""
                        else return (showConstType (const' v) ++ " " ++ n
                                     ++ " = " ++ showConst (const' v) ++ ";\n")
@@ -66,7 +66,7 @@ codeGraph (ty, name, sn) = case sn of
 -- | Walk down the Stream AST and find the declared inputs to print.
 codeInputS :: StatementS -> [String]
 codeInputS a = case a of
-  DeclS (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
+  DeclS (Var inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
   AssignS _ _       -> []
   BranchS _ b c     -> codeInputS b ++ codeInputS c
   AddS _ _ _        -> []
@@ -86,7 +86,7 @@ codeFilter (ty, name, stmt) = return (ty ++ " filter " ++ name ++ "("
 -- | Walk down the Filter AST and find the declared inputs to print.
 codeInput :: Statement -> [String]
 codeInput a = case a of
-  Decl (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
+  Decl (Var inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
   Assign _ _       -> []
   Branch _ b c     -> codeInput b ++ codeInput c
   Loop _ _ _ a     -> codeInput a
@@ -103,7 +103,7 @@ instance Show Statement where show = codeStmt "none"
 -- | Generate code corresponding to a StreamIt statement.
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
-  Decl (V inp n v) -> if inp then ""
+  Decl (Var inp n v) -> if inp then ""
                       else showConstType (const' v) ++ " " ++ n ++ " = "
                            ++ showConst (const' v) ++ ";\n"
   Assign _ _       -> codeStmtExpr a ++ ";\n"

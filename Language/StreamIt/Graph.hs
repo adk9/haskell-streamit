@@ -29,10 +29,10 @@ import Language.StreamIt.Core
 import Language.StreamIt.Filter
 
 data StatementS where
-  DeclS     :: AllE a => V a -> StatementS
-  AssignS   :: AllE a => V a -> Exp a -> StatementS
+  DeclS     :: Elt a => Var a -> StatementS
+  AssignS   :: Elt a => Var a -> Exp a -> StatementS
   BranchS   :: Exp Bool -> StatementS -> StatementS -> StatementS
-  AddS      :: (AddE a, AllE b) => Name -> a -> [Exp b] -> StatementS
+  AddS      :: (AddE a, Elt b) => Name -> a -> [Exp b] -> StatementS
   Pipeline  :: Bool -> StatementS -> StatementS
   SplitJoin :: Bool -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
@@ -69,45 +69,45 @@ instance (Typeable a, Typeable b) => Typeable1 (StreamIt a b) where
 
     in mkTyConApp tyCon [typeOf a, typeOf b]
 
-instance (AllE a, AllE b, Monad m) => Monad (StreamItT a b m) where
+instance (Elt a, Elt b, Monad m) => Monad (StreamItT a b m) where
   return a    = StreamItT $ \ s -> return (a, s)
   (>>=) sf f  = StreamItT $ \ s -> do (a1, s1) <- runStreamItT sf s
                                       (a2, s2) <- runStreamItT (f a1) s1
                                       return (a2, s2)
 
-instance (AllE a, AllE b) => MonadTrans (StreamItT a b) where
+instance (Elt a, Elt b) => MonadTrans (StreamItT a b) where
   lift m = StreamItT $ \ s -> do
     a <- m
     return (a, s)
 
-instance (AllE a, AllE b, MonadIO m) => MonadIO (StreamItT a b m) where
+instance (Elt a, Elt b, MonadIO m) => MonadIO (StreamItT a b m) where
 	liftIO = lift . liftIO
 
-addNode :: (AllE a, AllE b, Monad m) => StatementS -> StreamItT a b m ()
+addNode :: (Elt a, Elt b, Monad m) => StatementS -> StreamItT a b m ()
 addNode n = StreamItT $ \ (id, node) -> return ((), (id, Chain node n))
 
-evalStream :: (AllE a, AllE b, Monad m) => Int -> StreamItT a b m () -> m (Int, StatementS)
+evalStream :: (Elt a, Elt b, Monad m) => Int -> StreamItT a b m () -> m (Int, StatementS)
 evalStream id (StreamItT f) = do
   (_, x) <- f (id, Empty)
   return x
 
-execStream:: (AllE a, AllE b, Monad m) => StreamItT a b m () -> m StatementS
+execStream:: (Elt a, Elt b, Monad m) => StreamItT a b m () -> m StatementS
 execStream n = do
   (_, x) <- evalStream 0 n
   return x
 
-get :: (AllE a, AllE b, Monad m) => StreamItT a b m (Int, StatementS)
+get :: (Elt a, Elt b, Monad m) => StreamItT a b m (Int, StatementS)
 get = StreamItT $ \ a -> return (a, a)
 
-put :: (AllE a, AllE b, Monad m) => (Int, StatementS) -> StreamItT a b m ()
+put :: (Elt a, Elt b, Monad m) => (Int, StatementS) -> StreamItT a b m ()
 put s = StreamItT $ \ _ -> return ((), s)
 
 class AddE a where
-  add' :: (AllE b, AllE c, AllE d) => a -> [Exp d] -> StreamIt b c ()
-  add  :: (AllE b, AllE c) => a -> StreamIt b c ()
+  add' :: (Elt b, Elt c, Elt d) => a -> [Exp d] -> StreamIt b c ()
+  add  :: (Elt b, Elt c) => a -> StreamIt b c ()
   info :: Name -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 
-instance (AllE a, AllE b, Typeable a, Typeable b) => AddE (Filter a b ()) where
+instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
   add' a b = do
     n <- lift $ makeStableName a
     addNode $ AddS ("filt" ++ show (hashStableName n)) a b
@@ -123,7 +123,7 @@ instance (AllE a, AllE b, Typeable a, Typeable b) => AddE (Filter a b ()) where
     where
       ty = showFilterType b
 
-instance (AllE a, AllE b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
+instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
   add' a b = do
     n <- lift $ makeStableName a
     addNode $ AddS ("filt" ++ show (hashStableName n)) a b
@@ -141,12 +141,12 @@ instance (AllE a, AllE b, Typeable a, Typeable b) => AddE (StreamIt a b ()) wher
     where
       ty = showStreamItType b
 
-instance (AllE a, AllE b) => CoreE (StreamIt a b) where
+instance (Elt a, Elt b) => CoreE (StreamIt a b) where
   var input init = do
     (id, stmt) <- get
     n <- lift newUnique
-    put (id, Chain stmt $ DeclS (V input ("var" ++ show (hashUnique n)) init))
-    return $ V input ("var" ++ show (hashUnique n)) init
+    put (id, Chain stmt $ DeclS (Var input ("var" ++ show (hashUnique n)) init))
+    return $ Var input ("var" ++ show (hashUnique n)) init
   input _ = var True zero
   float = var False zero
   float' = var False
@@ -163,30 +163,30 @@ instance (AllE a, AllE b) => CoreE (StreamIt a b) where
     addNode $ BranchS cond node1 node2
   if_ cond stmt = ifelse cond stmt $ return ()
 
-pipelineT :: (AllE a, AllE b) => Bool -> StreamIt a b () -> StreamIt a b ()
+pipelineT :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
 pipelineT t n = do
   (id0, node) <- get
   (id1, node1) <- lift $ evalStream id0 n
   put (id1, node)
   addNode $ Pipeline t node1
 
-pipeline :: (AllE a, AllE b) => StreamIt a b () -> StreamIt a b ()
+pipeline :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
 pipeline n = pipelineT False n
 
-pipeline_ :: (AllE a, AllE b) => StreamIt a b () -> StreamIt a b ()
+pipeline_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
 pipeline_ n = pipelineT True n
 
-splitjoinT :: (AllE a, AllE b) => Bool -> StreamIt a b () -> StreamIt a b ()
+splitjoinT :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
 splitjoinT t n = do
   (id0, node) <- get
   (id1, node1) <- lift $ evalStream id0 n
   put (id1, node)
   addNode $ SplitJoin t node1
 
-splitjoin :: (AllE a, AllE b) => StreamIt a b () -> StreamIt a b ()
+splitjoin :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
 splitjoin n = splitjoinT False n
 
-splitjoin_ :: (AllE a, AllE b) => StreamIt a b () -> StreamIt a b ()
+splitjoin_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
 splitjoin_ n = splitjoinT True n
 
 class SplitterJoiner a where
@@ -198,10 +198,10 @@ instance SplitterJoiner Splitter where
 instance SplitterJoiner Joiner where
   roundrobin = RoundrobinJ
 
-split :: (AllE a, AllE b) => Splitter -> StreamIt a b ()
+split :: (Elt a, Elt b) => Splitter -> StreamIt a b ()
 split s = addNode $ Split s
 
-join :: (AllE a, AllE b) => Joiner -> StreamIt a b ()
+join :: (Elt a, Elt b) => Joiner -> StreamIt a b ()
 join j = addNode $ Join j
 
 type GraphInfo = (TypeSig, Name, StatementS)
