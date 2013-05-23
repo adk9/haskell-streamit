@@ -1,7 +1,7 @@
 module Language.StreamIt
   (
   -- * Types
-    E
+    Exp
   , V
   , AllE
   , NumE
@@ -92,8 +92,9 @@ import Language.StreamIt.Filter
 import Language.StreamIt.Graph
 import Language.StreamIt.Backend
 import Language.StreamIt.Compile
-import Language.Haskell.TH hiding (Name)
-import Language.Haskell.TH.Syntax hiding (Name)
+import Language.Haskell.TH hiding (Name, Exp)
+import Language.Haskell.TH.Syntax hiding (Name, Exp)
+import qualified Language.Haskell.TH.Syntax as THS
 import Language.Haskell.TH.Lift.Extras
 
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
@@ -110,7 +111,7 @@ generate tgt name s = do
 genTBB :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
 genTBB name s = generate TBB name s
 
-compileTBB :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q Exp
+compileTBB :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q THS.Exp
 compileTBB name s = do
   f <- liftIO $ generate TBB name s
   bs <- liftIO $ callTbb f
@@ -119,7 +120,7 @@ compileTBB name s = do
 genStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
 genStreamIt name s = generate StreamIt name s
 
-compileStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q Exp
+compileStreamIt :: (AllE a, AllE b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q THS.Exp
 compileStreamIt name s = do
   f <- liftIO $ generate StreamIt name s
   bs <- liftIO $ callStrc f

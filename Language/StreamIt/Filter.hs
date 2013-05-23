@@ -29,13 +29,13 @@ import Language.StreamIt.Core
 
 data Statement where
   Decl     :: AllE a => V a -> Statement
-  Assign   :: AllE a => V a -> E a -> Statement
-  Branch   :: E Bool -> Statement -> Statement -> Statement
-  Loop     :: Statement -> E Bool -> Statement -> Statement -> Statement
+  Assign   :: AllE a => V a -> Exp a -> Statement
+  Branch   :: Exp Bool -> Statement -> Statement -> Statement
+  Loop     :: Statement -> Exp Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
-  Work     :: (E Int, E Int, E Int) -> Statement -> Statement
+  Work     :: (Exp Int, Exp Int, Exp Int) -> Statement -> Statement
   Init     :: Statement -> Statement
-  Push     :: AllE a => E a -> Statement
+  Push     :: AllE a => Exp a -> Statement
   Pop      :: Statement
   Println  :: Statement -> Statement
   Null     :: Statement
@@ -128,11 +128,11 @@ decr :: (AllE a, AllE b) => V Int -> Filter a b ()
 decr a = a <== ref a - 1
 
 -- | Push
-push :: (AllE a, AllE b) => E b -> Filter a b ()
+push :: (AllE a, AllE b) => Exp b -> Filter a b ()
 push a = statement $ Push a
 
 -- | Peek
-peek :: AllE a => E a -> E a
+peek :: AllE a => Exp a -> Exp a
 peek = Peek
 
 -- | Pop
@@ -154,7 +154,7 @@ init' s = do
   statement $ Init stmt1
 
 -- | Work
-work :: (AllE a, AllE b) => (E Int, E Int, E Int) -> Filter a b () -> Filter a b ()
+work :: (AllE a, AllE b) => (Exp Int, Exp Int, Exp Int) -> Filter a b () -> Filter a b ()
 work (push, pop, peek) s = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 s
@@ -162,7 +162,7 @@ work (push, pop, peek) s = do
   statement $ Work (push, pop, peek) stmt1
 
 -- | For loop.
-for_ :: (AllE a, AllE b) => (Filter a b (), E Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
+for_ :: (AllE a, AllE b) => (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
 for_ (init, cond, inc) body = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 body
@@ -172,7 +172,7 @@ for_ (init, cond, inc) body = do
   statement $ Loop ini cond inc stmt1
 
 -- | While loop.
-while_ :: (AllE a, AllE b) => E Bool -> Filter a b () -> Filter a b ()
+while_ :: (AllE a, AllE b) => Exp Bool -> Filter a b () -> Filter a b ()
 while_ cond body = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 body

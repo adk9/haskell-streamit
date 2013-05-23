@@ -140,12 +140,12 @@ codeStmt name a = case a of
       Println _      -> ""
       Null	     -> ""
 
-    showFlowRate :: String -> E Int -> String
+    showFlowRate :: String -> Exp Int -> String
     showFlowRate token a = case a of
       Const 0 -> ""
       _       -> token ++ codeExpr a
 
-codeExpr :: E a -> String
+codeExpr :: Exp a -> String
 codeExpr a = case a of
   Ref a     -> show a
   Peek a    -> "peek(" ++ codeExpr a ++ ")"

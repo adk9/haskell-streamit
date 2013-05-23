@@ -30,9 +30,9 @@ import Language.StreamIt.Filter
 
 data StatementS where
   DeclS     :: AllE a => V a -> StatementS
-  AssignS   :: AllE a => V a -> E a -> StatementS
-  BranchS   :: E Bool -> StatementS -> StatementS -> StatementS
-  AddS      :: (AddE a, AllE b) => Name -> a -> [E b] -> StatementS
+  AssignS   :: AllE a => V a -> Exp a -> StatementS
+  BranchS   :: Exp Bool -> StatementS -> StatementS -> StatementS
+  AddS      :: (AddE a, AllE b) => Name -> a -> [Exp b] -> StatementS
   Pipeline  :: Bool -> StatementS -> StatementS
   SplitJoin :: Bool -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
@@ -103,7 +103,7 @@ put :: (AllE a, AllE b, Monad m) => (Int, StatementS) -> StreamItT a b m ()
 put s = StreamItT $ \ _ -> return ((), s)
 
 class AddE a where
-  add' :: (AllE b, AllE c, AllE d) => a -> [E d] -> StreamIt b c ()
+  add' :: (AllE b, AllE c, AllE d) => a -> [Exp d] -> StreamIt b c ()
   add  :: (AllE b, AllE c) => a -> StreamIt b c ()
   info :: Name -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 
@@ -113,7 +113,7 @@ instance (AllE a, AllE b, Typeable a, Typeable b) => AddE (Filter a b ()) where
     addNode $ AddS ("filt" ++ show (hashStableName n)) a b
   add  a = do
     n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a ([]::[E Int])
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a ([]::[Exp Int])
   info a b = do
     (f, g) <- S.get
     bs <- liftIO $ execStmt b
@@ -129,7 +129,7 @@ instance (AllE a, AllE b, Typeable a, Typeable b) => AddE (StreamIt a b ()) wher
     addNode $ AddS ("filt" ++ show (hashStableName n)) a b
   add  a = do
     n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a ([]::[E Int])
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a ([]::[Exp Int])
   info a b = do
     (f, g) <- S.get
     bs <- liftIO $ execStream b

@@ -43,9 +43,9 @@ codeGraph (ty, name, sn) = case sn of
     cs <- codeGraph (ty, name, c)
     return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "} else {\n"
             ++ indent cs ++ "}\n")
-  AddS n _ args     -> return (n ++ " " ++ n ++ "_;\n"
-                               -- ++ "(" ++ (intercalate ", " $ map codeExpr args) ++ ");\n"
-                               ++ "pipeline.add_filter(" ++ n ++ "_);\n")
+  AddS n _ _     -> return (n ++ " " ++ n ++ "_;\n"
+                            -- ++ "(" ++ (intercalate ", " $ map codeExpr args) ++ ");\n"
+                            ++ "pipeline.add_filter(" ++ n ++ "_);\n")
   Pipeline False a  -> do
     as <- codeGraph (ty, name, a)
     return ("int main(int argc, char* argv[]) {\n\t"
@@ -71,36 +71,22 @@ codeGraph (ty, name, sn) = case sn of
     return (as ++ bs)
   Empty             -> return ""
 
--- | Walk down the Stream AST and find the declared inputs to print.
-codeInputS :: StatementS -> [String]
-codeInputS a = case a of
-  DeclS (V inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  AssignS _ _       -> []
-  BranchS _ b c     -> codeInputS b ++ codeInputS c
-  AddS _ _ _        -> []
-  Pipeline _ a      -> codeInputS a
-  SplitJoin _ a     -> codeInputS a
-  Split _           -> []
-  Join _            -> []
-  Chain a b         -> codeInputS a ++ codeInputS b
-  Empty             -> []
-
 -- | Generate StreamIt code inside a filter.
 codeFilter :: FilterInfo -> IO String
-codeFilter (ty, name, stmt) = return ("class " ++ name ++ ": public tbb::filter {\n"
-                                      ++ "public:\n\t" ++ name ++ "();\nprivate:\n"
-                                      ++ indent (findDecls stmt)
-                                      ++ "\tvoid* operator()(void* item);\n};\n\n"
-                                      ++ (if (noInit stmt)
-                                          then (name ++ "::" ++ name
-                                                ++ "() : tbb::filter(serial_in_order) {}\n\n")
-                                          else "")
-                                      ++ (codeStmt name stmt))
+codeFilter (_, name, stmt) = return ("class " ++ name ++ ": public tbb::filter {\n"
+                                     ++ "public:\n\t" ++ name ++ "();\nprivate:\n"
+                                     ++ indent (findDecls stmt)
+                                     ++ "\tvoid* operator()(void* item);\n};\n\n"
+                                     ++ (if (noInit stmt)
+                                         then (name ++ "::" ++ name
+                                               ++ "() : tbb::filter(serial_in_order) {}\n\n")
+                                         else "")
+                                     ++ (codeStmt name stmt))
 
 -- | Walk down the Filter AST and find the declared inputs to print.
 findDecls :: Statement -> String
 findDecls a = case a of
-  Decl (V inp n v) -> showConstType (const' v) ++ " " ++ n ++ ";\n"
+  Decl (V _ n v) -> showConstType (const' v) ++ " " ++ n ++ ";\n"
   Branch _ b c     -> findDecls b ++ findDecls c
   Loop _ _ _ a     -> findDecls a
   Sequence a b     -> findDecls a ++ findDecls b
@@ -150,7 +136,7 @@ codeStmt name a = case a of
       Println _      -> ""
       Null	     -> ""
 
-    showFlowRate :: String -> E Int -> String
+    showFlowRate :: String -> Exp Int -> String
     showFlowRate token a = case a of
       Const 0 -> ""
       _       -> token ++ codeExpr a
@@ -163,7 +149,7 @@ noInit a = case a of
   Sequence a b     -> noInit a && noInit b
   _ -> True
 
-codeExpr :: E a -> String
+codeExpr :: Exp a -> String
 codeExpr a = case a of
   Ref a     -> show a
   Peek a    -> "peek(" ++ codeExpr a ++ ")"
