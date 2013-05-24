@@ -5,20 +5,20 @@ import Language.StreamIt
 sortInput :: Filter Void Int ()
 sortInput = do
   n <- input int
-  work (ref n, 0, 0) $ do
+  work Rate {pushRate=ref n, popRate=0, peekRate=0} $ do
     i <- int
     for_  (i <== 0, ref i <. ref n, incr i) $ do
       push $ ref n - ref i
 
 intPrinter :: Filter Int Void ()
 intPrinter = do
-  work (0, 1, 0) $ do
+  work (Rate 0 1 0) $ do
     println $ pop
 
 merger :: Filter Int Int ()
 merger = do
   n <- input int
-  work (ref n, ref n, 0) $ do
+  work Rate {pushRate=ref n, popRate=ref n, peekRate=0} $ do
     index1 <- int' 0
     index2 <- int' 1
 

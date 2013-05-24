@@ -67,15 +67,11 @@ codeGraph (ty, name, sn) = case sn of
 codeInputS :: StatementS -> [String]
 codeInputS a = case a of
   DeclS (Var inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  AssignS _ _       -> []
   BranchS _ b c     -> codeInputS b ++ codeInputS c
-  AddS _ _ _        -> []
   Pipeline _ a      -> codeInputS a
   SplitJoin _ a     -> codeInputS a
-  Split _           -> []
-  Join _            -> []
   Chain a b         -> codeInputS a ++ codeInputS b
-  Empty             -> []
+  _                 -> []
 
 -- | Generate StreamIt code inside a filter.
 codeFilter :: FilterInfo -> IO String
@@ -87,16 +83,12 @@ codeFilter (ty, name, stmt) = return (ty ++ " filter " ++ name ++ "("
 codeInput :: Statement -> [String]
 codeInput a = case a of
   Decl (Var inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  Assign _ _       -> []
   Branch _ b c     -> codeInput b ++ codeInput c
   Loop _ _ _ a     -> codeInput a
   Sequence a b     -> codeInput a ++ codeInput b
   Init a           -> codeInput a
   Work _ a         -> codeInput a
-  Push _           -> []
-  Pop              -> []
-  Println _        -> []
-  Null             -> []
+  _                -> []
 
 instance Show Statement where show = codeStmt "none"
 
@@ -117,9 +109,7 @@ codeStmt name a = case a of
                       ++ "}\n"
   Sequence a b     -> codeStmt name a ++ codeStmt name b
   Init a           -> "init {\n" ++ indent (codeStmt name a) ++ "}\n"
-  Work (a, b, c) d -> "work" ++ showFlowRate " push " a
-                      ++ showFlowRate " pop " b
-                      ++ showFlowRate " peek " c
+  Work rate d      -> "work " ++ showFlowRate rate
                       ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
   Push a           -> "push(" ++ codeExpr a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
@@ -130,20 +120,16 @@ codeStmt name a = case a of
     codeStmtExpr a = case a of
       Assign a b     -> show a ++ " = " ++ codeExpr b
       Sequence a b   -> codeStmtExpr a ++ codeStmtExpr b
-      Push _         -> ""
       Pop	     -> "pop()"
-      Decl _	     -> ""
-      Branch _ _ _   -> ""
-      Loop _ _ _ _   -> ""
-      Init _         -> ""
-      Work _ _       -> ""
-      Println _      -> ""
-      Null	     -> ""
+      _  	     -> ""
 
-    showFlowRate :: String -> Exp Int -> String
-    showFlowRate token a = case a of
-      Const 0 -> ""
-      _       -> token ++ codeExpr a
+    showFlowRate :: Rate -> String
+    showFlowRate Rate {pushRate=a, popRate=b, peekRate=c} =
+      showf "push" a ++ showf " pop" b ++ showf " peek" c
+        where 
+          showf tag rate = case rate of
+            Const 0 -> ""
+            _       -> tag ++ " " ++ codeExpr a
 
 codeExpr :: Exp a -> String
 codeExpr a = case a of

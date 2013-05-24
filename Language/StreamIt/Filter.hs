@@ -1,11 +1,13 @@
 module Language.StreamIt.Filter
   ( Statement (..)
   , FilterT (..)
+  , Rate (..)
   , Filter
   , FilterInfo
   , evalStmt
   , execStmt
   , showFilterType
+  , rate
   , push
   , peek
   , pop
@@ -33,7 +35,7 @@ data Statement where
   Branch   :: Exp Bool -> Statement -> Statement -> Statement
   Loop     :: Statement -> Exp Bool -> Statement -> Statement -> Statement
   Sequence :: Statement -> Statement -> Statement
-  Work     :: (Exp Int, Exp Int, Exp Int) -> Statement -> Statement
+  Work     :: Rate -> Statement -> Statement
   Init     :: Statement -> Statement
   Push     :: Elt a => Exp a -> Statement
   Pop      :: Statement
@@ -145,7 +147,17 @@ println f = do
   s <- lift $ execStmt f
   statement $ Println s
 
--- | Init
+-- | Rate declarations for work functions
+data Rate = Rate {
+  pushRate :: Exp Int,
+  popRate :: Exp Int, 
+  peekRate :: Exp Int
+  } deriving (Show)
+
+rate :: Exp Int -> Exp Int -> Exp Int -> Rate
+rate = Rate
+
+-- | Initialization function
 init' :: (Elt a, Elt b) => Filter a b () -> Filter a b ()
 init' s = do
   (id0, stmt) <- get
@@ -154,12 +166,12 @@ init' s = do
   statement $ Init stmt1
 
 -- | Work
-work :: (Elt a, Elt b) => (Exp Int, Exp Int, Exp Int) -> Filter a b () -> Filter a b ()
-work (push, pop, peek) s = do
+work :: (Elt a, Elt b) => Rate -> Filter a b () -> Filter a b ()
+work rate s = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 s
   put (id1, stmt)
-  statement $ Work (push, pop, peek) stmt1
+  statement $ Work rate stmt1
 
 -- | For loop.
 for_ :: (Elt a, Elt b) => (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()

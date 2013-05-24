@@ -8,13 +8,13 @@ intSource = do
   init' $ do
     x <== 0
 
-  work (1, 0, 0) $ do
+  work Rate {pushRate=1, popRate=0, peekRate=0} $ do
     incr x
     push(ref x)
 
 intPrinter :: Filter Int Void ()
 intPrinter = do
-  work (0, 1, 0) $ do
+  work (Rate 0 1 0) $ do
     println $ pop
 
 helloWorld :: StreamIt Void Void ()

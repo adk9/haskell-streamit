@@ -54,6 +54,7 @@ module Language.StreamIt
   -- * StreamIt Statements
   , StreamIt
   -- ** StreamIt Flow-rate Primitives
+  , Rate (..)
   , push
   , peek
   , pop

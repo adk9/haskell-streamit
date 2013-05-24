@@ -112,10 +112,8 @@ codeStmt name a = case a of
   Sequence a b     -> codeStmt name a ++ codeStmt name b
   Init a           -> name ++ "::" ++ name ++ "() : tbb::filter(serial_in_order) {\n"
                       ++ indent (codeStmt name a) ++ "}\n\n"
-  Work (a, b, c) d -> "void* " ++ name ++ "::operator()(void* item) {\n"
-                      ++ "/*" ++ showFlowRate " push " a
-                      ++ showFlowRate " pop " b
-                      ++ showFlowRate " peek " c ++ "*/\n"
+  Work rate d      -> "void* " ++ name ++ "::operator()(void* item) {\n"
+                      ++ "/*" ++ showFlowRate rate ++ "*/\n"
                       ++ indent (codeStmt name d) ++ "}\n"
   Push a           -> "tbb_return(&" ++ codeExpr a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
@@ -136,10 +134,13 @@ codeStmt name a = case a of
       Println _      -> ""
       Null	     -> ""
 
-    showFlowRate :: String -> Exp Int -> String
-    showFlowRate token a = case a of
-      Const 0 -> ""
-      _       -> token ++ codeExpr a
+    showFlowRate :: Rate -> String
+    showFlowRate Rate {pushRate=a, popRate=b, peekRate=c} =
+      showf "push" a ++ showf " pop" b ++ showf " peek" c
+        where 
+          showf tag rate = case rate of
+            Const 0 -> ""
+            _       -> tag ++ " " ++ codeExpr a
 
 noInit :: Statement -> Bool
 noInit a = case a of
