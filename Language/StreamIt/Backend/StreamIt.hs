@@ -61,6 +61,9 @@ codeGraph (ty, name, sn) = case sn of
     as <- codeGraph (ty, name, a) 
     bs <- codeGraph (ty, name, b)
     return (as ++ bs)
+  File rw ty name   -> case rw of
+    False -> return ("add FileReader<" ++ showConstType ty ++ ">(\"" ++ name ++ "\");\n")
+    True ->  return ("add FileWriter<" ++ showConstType ty ++ ">(\"" ++ name ++ "\");\n")
   Empty             -> return ""
 
 -- | Walk down the Stream AST and find the declared inputs to print.
@@ -125,11 +128,11 @@ codeStmt name a = case a of
 
     showFlowRate :: Rate -> String
     showFlowRate Rate {pushRate=a, popRate=b, peekRate=c} =
-      showf "push" a ++ showf " pop" b ++ showf " peek" c
-        where 
+      intercalate " " $ zipWith showf ["push","pop","peek"] [a,b,c]
+        where
           showf tag rate = case rate of
             Const 0 -> ""
-            _       -> tag ++ " " ++ codeExpr a
+            _       -> tag ++ " " ++ codeExpr rate
 
 codeExpr :: Exp a -> String
 codeExpr a = case a of

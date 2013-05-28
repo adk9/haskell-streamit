@@ -16,6 +16,8 @@ module Language.StreamIt.Graph
   , split
   , join
   , roundrobin
+  , fileReader
+  , fileWriter
   ) where
 
 import Data.Char
@@ -38,6 +40,7 @@ data StatementS where
   Split     :: Splitter -> StatementS
   Join      :: Joiner -> StatementS
   Chain     :: StatementS -> StatementS -> StatementS
+  File      :: Bool -> Const -> Name -> StatementS
   Empty     :: StatementS
 
 instance Eq (StatementS) where (==) _ _ = True
@@ -54,7 +57,7 @@ instance Show Joiner where
   show jn = case jn of
     RoundrobinJ -> "roundrobin()"
 
--- | The StreamIt monad holds the StreamIt graph.
+-- | The StreamIt monad holds StreamIt statements.
 newtype StreamItT i o m a = StreamItT {runStreamItT :: ((Int, StatementS) -> m (a, (Int, StatementS)))}
 
 type StreamIt a b = StreamItT a b IO
@@ -102,6 +105,15 @@ get = StreamItT $ \ a -> return (a, a)
 put :: (Elt a, Elt b, Monad m) => (Int, StatementS) -> StreamItT a b m ()
 put s = StreamItT $ \ _ -> return ((), s)
 
+{-|
+    The 'AddE' class represents the add expressions in the StreamIt EDSL. It currently
+    support two variants of the 'add' statement:
+    1. add - which accepts a filter or a pipeline that accepts no stream parameters.
+    2. add' - which is used for a filter/pipeline that accepts a list of stream parameters.
+
+    @ add foo @ is equivalent to @ add' foo [] @ and thus, only provides sugar to make
+    some of the examples look less verbose.
+-}
 class AddE a where
   add' :: (Elt b, Elt c, Elt d) => a -> [Exp d] -> StreamIt b c ()
   add  :: (Elt b, Elt c) => a -> StreamIt b c ()
@@ -163,6 +175,12 @@ instance (Elt a, Elt b) => CoreE (StreamIt a b) where
     addNode $ BranchS cond node1 node2
   if_ cond stmt = ifelse cond stmt $ return ()
 
+{-|
+    The 'pipeline' function is used to declare a composite stream consisting of
+    multiple child streams. The variant 'pipeline_' is similar except that it
+    does not gensym a new pipeline filter, and instead adds the pipeline definition
+    inline in the generated code.
+-}
 pipelineT :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
 pipelineT t n = do
   (id0, node) <- get
@@ -176,6 +194,10 @@ pipeline n = pipelineT False n
 pipeline_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
 pipeline_ n = pipelineT True n
 
+{-|
+    The two variants of 'splitjoin' are similar to those of the 'pipeline' statement
+    described above.
+-}
 splitjoinT :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
 splitjoinT t n = do
   (id0, node) <- get
@@ -208,18 +230,20 @@ type GraphInfo = (TypeSig, Name, StatementS)
 
 findDefs :: StatementS -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 findDefs a = case a of
-  DeclS _        -> return ()
-  AssignS _ _    -> return ()
   BranchS _ a b  -> findDefs a >> findDefs b
   AddS a b _     -> info a b
   Pipeline _ a   -> findDefs a
   SplitJoin _ a  -> findDefs a
-  Split _        -> return ()
-  Join _         -> return ()
   Chain a b      -> findDefs a >> findDefs b
-  Empty          -> return ()
+  _              -> return ()
 
 showStreamItType :: (Typeable a, Typeable b) => StreamIt a b () -> String 
 showStreamItType s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
   where
     t = words $ showTypeSig s
+
+fileReader :: (Elt a, Elt b, Elt c) => (c -> Const) -> Name -> StreamIt a b ()
+fileReader ty name = addNode $ File False (ty zero) name
+
+fileWriter :: (Elt a, Elt b, Elt c) => (c -> Const) -> Name -> StreamIt a b ()
+fileWriter ty name = addNode $ File True (ty zero) name

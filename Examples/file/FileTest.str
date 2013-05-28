@@ -1,0 +1,18 @@
+void->float filter filt18()
+{
+	float var1 = 0.0;
+	init {
+		var1 = 0.0;
+	}
+	work push 1   {
+		var1 = (var1 + 2.0);
+		push(var1);
+	}
+}
+
+void->void pipeline FileTest()
+{
+	add filt18();
+	add FileWriter<float>("float.test");
+}
+

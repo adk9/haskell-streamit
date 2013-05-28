@@ -69,6 +69,9 @@ codeGraph (ty, name, sn) = case sn of
     as <- codeGraph (ty, name, a) 
     bs <- codeGraph (ty, name, b)
     return (as ++ bs)
+  File rw ty name   -> case rw of
+    False -> return ("add FileReader<" ++ showConstType ty ++ ">(\"" ++ name ++ "\");\n")
+    True ->  return ("add FileWriter<" ++ showConstType ty ++ ">(\"" ++ name ++ "\");\n")
   Empty             -> return ""
 
 -- | Generate StreamIt code inside a filter.
@@ -140,7 +143,7 @@ codeStmt name a = case a of
         where 
           showf tag rate = case rate of
             Const 0 -> ""
-            _       -> tag ++ " " ++ codeExpr a
+            _       -> tag ++ " " ++ codeExpr rate
 
 noInit :: Statement -> Bool
 noInit a = case a of

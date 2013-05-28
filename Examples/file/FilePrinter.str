@@ -1,0 +1,13 @@
+float->void filter filt18()
+{
+	work  pop 1  {
+		println(pop());
+	}
+}
+
+void->void pipeline FilePrinter()
+{
+	add FileReader<float>("float.test");
+	add filt18();
+}
+

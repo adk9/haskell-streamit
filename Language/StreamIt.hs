@@ -6,6 +6,7 @@ module Language.StreamIt
   , Elt
   , NumE
   , Void
+  , Const (..)
   -- * Expressions
   -- ** Constants
   , true
@@ -73,6 +74,8 @@ module Language.StreamIt
   , split
   , join
   , roundrobin
+  , fileReader
+  , fileWriter
   -- * StreamIt Code Generation
   , Target (..)
   , generate
