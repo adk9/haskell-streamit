@@ -73,12 +73,11 @@ type PullArray a = (Exp Int -> Exp a)
 
 -- | Turn a manifest array bound to a variable into an array that can be used with
 -- the combinators.
-namedArr :: Var (SArray i o a) -> SArray i o a
+namedArr :: Var (S.Array a) -> SArray i o a
 namedArr vr =
   SArray
-  { pushrep = PushArray $ \ rcvr -> error "pushrep"
-  , pullrep = \ ix -> error "pullrep -- need array deref"
-                      -- (vr S.!)
+  { pushrep = loopPusher (constant 0) (\i -> vr  ! ref i)
+  , pullrep = (vr S.!) 
   }
   
 --------------------------------------------------------------------------------
@@ -92,7 +91,7 @@ take n (Stream cursor) =
 
 -- | Capture the common pattern of sequentially pushing all elements of the array
 -- with a for loop.
-loopPusher :: Elt a => Exp Int -> (Var Int -> Exp a) -> PushArray i o a 
+loopPusher :: Exp Int -> (Var Int -> Exp a) -> PushArray i o a 
 loopPusher len body = 
   PushArray $ \ rcvr -> do
            -- Here we loop through and do all the peeks, pushing them to the consumer:

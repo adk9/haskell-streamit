@@ -7,6 +7,7 @@ module Language.StreamIt
   , NumE
   , Void
   , Const (..)
+  , Array
   -- * Expressions
   -- ** Constants
   , true
@@ -17,6 +18,7 @@ module Language.StreamIt
   , decr
   -- ** Variable Reference
   , ref
+  , (!)
   -- ** Logical Operations
   , not_
   , (&&.)
