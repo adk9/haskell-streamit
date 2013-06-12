@@ -99,7 +99,7 @@ showFilterType s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail 
   where
     t = words $ showTypeSig s
 
-instance (Elt a, Elt b) => CoreE (Filter a b) where
+instance CoreE (Filter a b) where
   var input init = do
     (id, stmt) <- get
     n <- lift newUnique
