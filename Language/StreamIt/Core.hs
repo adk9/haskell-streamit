@@ -8,6 +8,7 @@ module Language.StreamIt.Core
   , NumE
   , Const (..)
   , Void
+  , Array  
   , true
   , false
   , constant
@@ -26,6 +27,7 @@ module Language.StreamIt.Core
   , (>=.)
   , mod_
   , showTypeSig
+  , (!)
   ) where
 
 import Data.Ratio
@@ -41,6 +43,9 @@ infixr 0 <==
 
 type TypeSig = String
 type Name = String
+
+-- | A phantom type for describing StreamIt array types.
+data Array a 
 
 -- | A mutable variable.
 data Var a
@@ -175,7 +180,8 @@ not_ = Not
 (||.) = Or
 
 -- | Array Dereference:
--- (!) :: Elt a => Var (SArray a) -> Exp Int -> Exp a 
+(!) :: Var (Array a) -> Exp Int -> Exp a 
+(!) = error "FINISHME: Streamit array dereference"
 
 -- | The conjunction of a Exp Bool list.
 and_ :: [Exp Bool] -> Exp Bool
