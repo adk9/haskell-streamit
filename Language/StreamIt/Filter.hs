@@ -59,37 +59,37 @@ instance (Typeable a, Typeable b) => Typeable1 (Filter a b) where
 
     in mkTyConApp tyCon [typeOf a, typeOf b]
 
-instance (Elt a, Elt b, Monad m) => Monad (FilterT a b m) where
+instance (Monad m) => Monad (FilterT a b m) where
   return a    = FilterT $ \ s -> return (a, s)
   (>>=) sf f  = FilterT $ \ s -> do (a1, s1) <- runFilterT sf s
                                     (a2, s2) <- runFilterT (f a1) s1
                                     return (a2, s2)
 
-instance (Elt a, Elt b) => MonadTrans (FilterT a b) where
+instance MonadTrans (FilterT a b) where
   lift m = FilterT $ \ s -> do
     a <- m
     return (a, s)
 
-instance (Elt a, Elt b, MonadIO m) => MonadIO (FilterT a b m) where
+instance (MonadIO m) => MonadIO (FilterT a b m) where
 	liftIO = lift . liftIO
 
-statement :: (Elt a, Elt b, Monad m) => Statement -> FilterT a b m ()
+statement :: (Monad m) => Statement -> FilterT a b m ()
 statement a = FilterT $ \ (id, statement) -> return ((), (id, Sequence statement a))
 
-evalStmt :: (Elt a, Elt b, Monad m) => Int -> FilterT a b m () -> m (Int, Statement)
+evalStmt :: (Monad m) => Int -> FilterT a b m () -> m (Int, Statement)
 evalStmt id (FilterT f) = do
   (_, x) <- f (id, Null)
   return x
 
-execStmt:: (Elt a, Elt b, Monad m) => FilterT a b m () -> m Statement 
+execStmt:: (Monad m) => FilterT a b m () -> m Statement 
 execStmt f = do
   (_, x) <- evalStmt 0 f
   return x
 
-get :: (Elt a, Elt b, Monad m) => FilterT a b m (Int, Statement)
+get :: (Monad m) => FilterT a b m (Int, Statement)
 get = FilterT $ \ a -> return (a, a)
 
-put :: (Elt a, Elt b, Monad m) => (Int, Statement) -> FilterT a b m ()
+put :: (Monad m) => (Int, Statement) -> FilterT a b m ()
 put s = FilterT $ \ _ -> return ((), s)
 
 type FilterInfo = (TypeSig, Name, Statement)
@@ -180,7 +180,7 @@ work rate s = do
   statement $ Work rate stmt1
 
 -- | For loop.
-for_ :: (Elt a, Elt b) => (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
+for_ :: (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
 for_ (init, cond, inc) body = do
   (id0, stmt) <- get
   (id1, stmt1) <- lift $ evalStmt id0 body
