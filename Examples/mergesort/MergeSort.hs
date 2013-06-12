@@ -1,4 +1,4 @@
-module Main (main) where
+module MergeSort (mergeSort) where
 
 import Language.StreamIt
 
@@ -64,8 +64,3 @@ mergeSort = pipeline $ do
   add' sortInput [ref numInputs / ref mult]
   add' sorter [ref numInputs]
   add  intPrinter
-
-main :: IO ()
-main = do
-  genStreamIt "MergeSort" mergeSort
-  return ()
