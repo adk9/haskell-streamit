@@ -45,6 +45,7 @@ type Name = String
 -- | A mutable variable.
 data Var a
   = Var Bool Name a
+    -- RRN: What does this Bool do??
   deriving Eq
 
 instance Show (Var a) where show (Var _ n _) = n
@@ -102,7 +103,7 @@ class Monad a => CoreE a where
 -- | A logical, arithmetic, comparative, or conditional expression.
 data Exp a where
   Ref   :: Elt a => Var a -> Exp a
-  Peek  :: Elt a => Exp a -> Exp a
+  Peek  :: Elt a => Exp a -> Exp a  -- RRN: Shouldn't this take an exp int?
   Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
   Sub   :: NumE a => Exp a -> Exp a -> Exp a
