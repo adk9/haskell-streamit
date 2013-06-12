@@ -1,0 +1,124 @@
+
+
+
+// What are the edges of StreamIt metaprog capability? 
+// ------------------------------------------------------------
+
+void->int filter nats_source()
+{
+  int var1 = 0;
+  init {
+    var1 = 0;
+  }
+  work push 1 {
+    var1 = (var1 + 1);
+    push(var1);
+  }
+}
+
+int->void filter printer()
+{
+  work pop 1 {
+    println(pop());
+  }
+}
+
+// Highly uneven error message quality.  
+// (1) a good error for wrong filter type.
+// (2) a good error for forgetting pop annotation.
+// (3) a crazy internal error masking the two previous if pop is used in an expression (e.g. push(pop() + 1);)...
+    // java.lang.AssertionError: 6
+    // 	    at streamit.frontend.nodes.TypePrimitive.promotesTo(TypePrimitive.java:184)
+    // 	    at streamit.frontend.nodes.Type.leastCommonPromotion(Type.java:57)
+    // 	    at streamit.frontend.nodes.GetExprType.visitExprBinary(GetExprType.java:98)
+    // 	    at streamit.frontend.nodes.ExprBinary.accept(ExprBinary.java:96)
+    // 	    at streamit.frontend.passes.SymbolTableVisitor.getType(SymbolTableVisitor.java:109)
+    // 	    at streamit.frontend.passes.SemanticChecker$4.visitStmtPush(SemanticChecker.java:910)
+    // 	    at streamit.frontend.nodes.StmtPush.accept(StmtPush.java:48)
+    // 	    at streamit.frontend.nodes.FEReplacer.doStatement(FEReplacer.java:118)
+    // 	    at streamit.frontend.nodes.FEReplacer.visitStmtBlock(FEReplacer.java:459)
+    // 	    at streamit.frontend.passes.SymbolTableVisitor.visitStmtBlock(SymbolTableVisitor.java:227)
+    // 	    at streamit.frontend.nodes.StmtBlock.accept(StmtBlock.java:52)
+    // 	    at streamit.frontend.nodes.FEReplacer.visitFuncWork(FEReplacer.java:340)
+int->int filter incr(int n)
+{
+  // Metaprogramming...
+  int m = n; // Allowed.
+  // m += 1; // Not allowed.
+  int o = m + 1 - 1; // Allowed
+  // But, these become part of the INIT function, and this becomes a stateless filter.  
+  
+  float[10] arr0;  // Arrays allowed here...
+
+  // So this is NOT really metaprogramming.  BUT, the compiler is
+  // aggressive enough about optimizing that in the generated
+  // init_incr_* function doesn't actually do any work.  Hmm.
+  work pop 1 push 1 {
+    int[10] arr1;  // Arrays allowed here...
+    arr1[3] = o;
+    arr1[3] = arr1[3] + arr1[3] - arr1[3];
+    push(pop() + arr1[3]);
+  }
+}
+
+// (4) other errors come from the generated *JAVA* code, e.g. that a
+// class is public and should be in a file of the same name.
+void->void pipeline test()
+{
+  int cnst = 2; // Metaprogramming with variables.
+  cnst *= 5;    // Metaprogramming with variables.  This works.
+
+  // float arr[10]; // This doesn't work at all!
+
+  add nats_source();    
+   for (int i=0; i < cnst; i++) {
+     int[10] arr2;  // Arrays allowed here...
+     arr2[3] = 0;
+     arr2[3] += 99 + i;  // arbitrary imperative code at compile time?
+                         // Is it eliminated by staging or just DCE? 
+                         // Ok, let's actually use it for something...
+                         // Good, it still doesn't appear in the output .cpp code... this is staging it.
+
+     // Ten incrs should print starting at 11:
+     // add incr(1);
+     // More metaprogramming..
+     // ---------------UH OH------------------
+     print("Graph construction-time println: ");
+     println(arr2[3] - 99); // Uh this just DISAPPEARS in the C backend!??! <BUG>? 
+     // WHY do these two yield different answers??
+     // add incr(arr2[3] - 99); // Weird negative numbers.  <BUG>? 
+                                // It clearly is a bug because it gets a different (i.e. the right) answer with --library
+     // add incr(arr2[3]);
+     // add incr(1); // works
+     add incr(i); // works
+     // --------------------------------------
+   }
+
+  add splitjoin {
+    split roundrobin(2, 2);
+    add Identity<float>(); // <BUG> C backend will NOT catch this type mismatch (float/int)
+                           // There must not be a proper typecheck pass...
+    // add Identity<int>(); // C backend will NOT catch this type mismatch (float/int)
+    add Identity<int>();
+    join roundrobin();
+  };
+   
+  add printer();
+}
+
+//--------------------------------------------------------------------------------
+// Next, what about a recursive split-join pattern?
+
+// Well there are no FUNCTIONS!  So you can't write anything recursive
+// to start with... it would have to be structured... as a loop?
+// int foo(int n) {
+//   return n+1;
+// }
+
+
+    // add splitjoin {
+    // 	split roundrobin(N, N);
+    // 	add Identity<float>();
+    // 	add Multiply();
+    // 	join roundrobin();
+    // };
