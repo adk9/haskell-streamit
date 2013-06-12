@@ -134,7 +134,7 @@ push :: (Elt a, Elt b) => Exp b -> Filter a b ()
 push a = statement $ Push a
 
 -- | Peek
-peek :: Elt a => Exp a -> Exp a
+peek :: Elt a => Exp Int -> Exp a
 -- RRN: Shouldn't the type be:
 --  pop :: (Elt a, Elt b) => Exp Int -> Filter a b (Exp b)
 peek = Peek
@@ -147,6 +147,8 @@ pop = statement $ Pop
 
 -- | Println
 println :: (Elt a, Elt b) => Filter a b () -> Filter a b ()
+-- RRN: I would expect:
+-- println :: (Elt a) => Exp a -> Filter a b ()
 println f = do
   s <- lift $ execStmt f
   statement $ Println s
