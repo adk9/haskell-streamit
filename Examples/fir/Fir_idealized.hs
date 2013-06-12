@@ -52,8 +52,10 @@ fir n weights =
 -- Types:
 
 -- | An abstract handle on the stream.
-data Stream a = Stream Int
-  -- ^ Right now it's nothing but a cursor that starts at zero.
+data Stream a = Stream [Exp a] Int
+  -- ^ It contains a cursor that starts at zero as well as a list of elements scons'd
+  --   on the front, with the head of the list being the most recently added.
+
 
 -- | A StreamIt (staged) array.
 -- 
@@ -82,8 +84,9 @@ namedArr vr =
   
 --------------------------------------------------------------------------------
 
+-- FIXME: take into account the added elements!!!
 take :: Elt a => Exp Int -> Stream a -> SArray i o a
-take n (Stream cursor) =
+take n (Stream [] cursor) =
   SArray
   { pullrep = peeker
   , pushrep = loopPusher n (peeker . ref)
@@ -101,9 +104,8 @@ loopPusher len body =
               rcvr (ref ix) (body ix)
            return ()
 
-
 scons :: S.Exp a -> Stream a -> Stream a
-scons = error "scons"
+scons hd (Stream ls cursor) = Stream (hd:ls) cursor
 
 -- Shorthand:
 x <:> y = scons x y
@@ -117,16 +119,20 @@ tail = error "tail"
 filter :: (Stream a -> (Stream a -> Stream b) -> Stream b) -> S.Filter a b ()
 filter = error "filter"
 
-sum :: Num a => SArray i o a -> S.Exp a
--- sum :: Num a => SArray a -> a
-sum = error "sum"
+-- sum :: Num a => SArray i o a -> S.Exp a
+sum :: (Num a, NumE a) => SArray i o a -> S.Exp a
+sum = fold (+) 0 
+
+-- | Fold is a *consumer* of arrays.
+fold :: (Exp a -> Exp b -> Exp b) -> a -> SArray i o b -> S.Exp b
+fold = error "Finishme - SArray fold"
 
 zipWith :: (Exp a -> Exp b -> Exp c) -> SArray i o a -> SArray i o b -> SArray i o c
 zipWith fn SArray{pushrep=push1, pullrep=pull1}
            SArray{pushrep=push2, pullrep=pull2} =
   SArray
   { pullrep = \ ix -> fn (pull1 ix) (pull2 ix)
-  , pushrep = error "FINSHME"                      
+  , pushrep = error "FINSHME - zipWith pushrep"                      
     -- When pushing, zipWith prefers not to generate TWO loops.  The sizes should match
     -- so one loop should suffice.
     --
