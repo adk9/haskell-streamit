@@ -135,10 +135,14 @@ push a = statement $ Push a
 
 -- | Peek
 peek :: Elt a => Exp a -> Exp a
+-- RRN: Shouldn't the type be:
+--  pop :: (Elt a, Elt b) => Exp Int -> Filter a b (Exp b)
 peek = Peek
 
 -- | Pop
 pop :: (Elt a, Elt b) => Filter a b ()
+-- RRN: Shouldn't the type be:
+--  pop :: (Elt a, Elt b) => Filter a b (Exp b)
 pop = statement $ Pop
 
 -- | Println

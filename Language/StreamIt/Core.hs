@@ -103,7 +103,9 @@ class Monad a => CoreE a where
 -- | A logical, arithmetic, comparative, or conditional expression.
 data Exp a where
   Ref   :: Elt a => Var a -> Exp a
-  Peek  :: Elt a => Exp a -> Exp a  -- RRN: Shouldn't this take an exp int?
+  Peek  :: Elt a => Exp a -> Exp a  -- RRN: Shouldn't this take an exp int?  Further,
+                                    -- this has an effect so it should be in the
+                                    -- Filter monad.
   Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
   Sub   :: NumE a => Exp a -> Exp a -> Exp a
