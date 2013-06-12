@@ -1,5 +1,7 @@
 module Fir where
 
+import Language.StreamIt
+
 fir N weights = filt (1,1,N)
         (do
                 result <- float 0; -- new, initlzd variable
