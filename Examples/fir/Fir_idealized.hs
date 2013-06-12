@@ -65,6 +65,10 @@ data SArray a =
 --  (This combines push-arrays with the generalized-stream-fusion style multi-rep
 --  bundling.)
   }
+
+data PushArray a
+data PullArray a
+
   
 --------------------------------------------------------------------------------
 

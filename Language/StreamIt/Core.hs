@@ -171,6 +171,9 @@ not_ = Not
 (||.) :: Exp Bool -> Exp Bool -> Exp Bool
 (||.) = Or
 
+-- | Array Dereference:
+-- (!) :: Elt a => Var (SArray a) -> Exp Int -> Exp a 
+
 -- | The conjunction of a Exp Bool list.
 and_ :: [Exp Bool] -> Exp Bool
 and_ = foldl (&&.) true
