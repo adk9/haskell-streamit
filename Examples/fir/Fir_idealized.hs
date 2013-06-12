@@ -5,7 +5,7 @@ import Language.StreamIt -- (Exp, Filter, Var)
 -- Functional layer:
 -- import qualified Language.StreamIt.Fun as F
 import qualified Prelude as P
-import Prelude ((+),(*),($), error, return,
+import Prelude ((+),(*),($), (.), error, return,
                 Int, Float, Num)
 
 {-
@@ -85,9 +85,10 @@ namedArr vr =
 take :: Elt a => Exp Int -> Stream a -> SArray i o a
 take n (Stream cursor) =
   SArray
-  { pullrep = \ ix -> error "FIXME - peek " -- S.peek (constant cursor + ix)
-  , pushrep = loopPusher n (\ ix -> peek (S.constant cursor + ref ix))
+  { pullrep = peeker
+  , pushrep = loopPusher n (peeker . ref)
   }
+  where peeker ix = peek (S.constant cursor + ix)
 
 -- | Capture the common pattern of sequentially pushing all elements of the array
 -- with a for loop.
@@ -120,5 +121,15 @@ sum :: Num a => SArray i o a -> S.Exp a
 -- sum :: Num a => SArray a -> a
 sum = error "sum"
 
-zipWith :: (a -> b -> c) -> SArray i o a -> SArray i o b -> SArray i o c
-zipWith = error "zipwith"
+zipWith :: (Exp a -> Exp b -> Exp c) -> SArray i o a -> SArray i o b -> SArray i o c
+zipWith fn SArray{pushrep=push1, pullrep=pull1}
+           SArray{pushrep=push2, pullrep=pull2} =
+  SArray
+  { pullrep = \ ix -> fn (pull1 ix) (pull2 ix)
+  , pushrep = error "FINSHME"                      
+    -- When pushing, zipWith prefers not to generate TWO loops.  The sizes should match
+    -- so one loop should suffice.
+    --
+    -- Currently there's no way to know which rep each array "prefers" so we arbitrarily
+    -- pull the first and let the second push.                      
+  }
