@@ -1,4 +1,4 @@
-module FileTest (fileTest) where
+module Examples.File.FileTest (fileTest) where
 
 import Language.StreamIt
 

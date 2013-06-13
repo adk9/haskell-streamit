@@ -1,4 +1,4 @@
-module FilePrinter (filePrinter) where
+module Examples.File.FilePrinter (filePrinter) where
 
 import Language.StreamIt
 

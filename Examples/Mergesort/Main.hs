@@ -1,8 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main (main) where
 
-import MergeSort (mergeSort)
 import Language.StreamIt
+import Examples.Mergesort.MergeSort (mergeSort)
 
 -- main :: IO ()
 -- main = do

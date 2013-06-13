@@ -1,15 +1,15 @@
 #!/bin/bash
 
-EXAMPLES="hello file mergesort"
+EXAMPLES="Hello File Mergesort"
 
 # Test function
 function test {
-    "$@"
+    "$@" > /dev/null
     status=$?
     if [ $status -ne 0 ]; then
 	printf "\e[%sm%s\e[00m\n" 31 "[FAILED]"
     fi
-    printf "\e[%sm%s\e[00m\n" 31 "[PASSED]"
+    printf "\e[%sm%s\e[00m\n" 32 "[PASSED]"
 }
 
 # Cleanup function
@@ -28,13 +28,13 @@ cleanup
 for e in $EXAMPLES
 do
     pushd $e > /dev/null
-    echo "Test: $e"
+    printf "\e[%sm%s\e[00m\n" "4;34" "TEST: $e"
     ghc --make ./Main.hs > /dev/null
-    if [ ! -x Main ]; then
+    if [ ! -x ./Main ]; then
 	printf "\e[%sm%s\e[00m\n" 31 "[FAILED]"
 	popd > /dev/null
 	continue
     fi
-    test Main
+    test ./Main
     popd > /dev/null
 done

@@ -1,4 +1,4 @@
-module HelloWorld (helloWorld) where
+module Examples.Hello.HelloWorld (helloWorld) where
 
 import Language.StreamIt
 

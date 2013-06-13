@@ -1,4 +1,4 @@
-module MergeSort (mergeSort) where
+module Examples.Mergesort.MergeSort (mergeSort) where
 
 import Language.StreamIt
 

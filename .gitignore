@@ -24,8 +24,10 @@ dist/
 
 # Project-specific files #
 ##########################
-Examples/hello/Main
-Examples/hello/TBBMain
-Examples/hello/HelloWorld.java
-Examples/mergesort/MergeSort
-Examples/mergesort/Main
+Examples/*/*.java
+Examples/Hello/Main
+Examples/Hello/TBBMain
+Examples/Mergesort/Main
+Examples/Mergesort/MergeSort
+Examples/File/Main
+Examples/File/float.test

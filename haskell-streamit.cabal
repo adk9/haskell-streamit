@@ -11,6 +11,7 @@ description: 	StreamIt (<http://groups.csail.mit.edu/cag/streamit/>) is a
                 a stream graph from the haskell-streamit EDSL program.
 copyright: 	Copyright (c) 2013 Abhishek Kulkarni
 author:		Abhishek Kulkarni <adkulkar@indiana.edu>
+		Ryan Newton <rrnewton@gmail.com>
 maintainer:	Abhishek Kulkarni <adkulkar@indiana.edu>
 category: 	Language, Parallelism
 license: 	BSD3
@@ -18,11 +19,14 @@ license-file:   LICENSE
 stability: 	Experimental
 homepage:       http://adk9.github.com/haskell-streamit
 build-type:	Simple
-cabal-Version:	>=1.6
-tested-with:    GHC==7.0.2
+cabal-Version:	>=1.8
+tested-with:    GHC==7.0.2 GHC==7.4.2 GHC==7.6.2
 
 extra-source-files:
-  Examples/*.hs
+  Examples/file/Main.hs
+  Examples/hello/Main.hs
+  Examples/merge/Main.hs
+  Examples/fir/Main.hs
 
 source-repository head
   type:     git
@@ -39,6 +43,11 @@ library
     Language.StreamIt.Graph
     Language.StreamIt.Compile
     Language.Haskell.TH.Lift.Extras
+    Examples.StreamIt
+    Examples.Hello.HelloWorld
+    Examples.File.FileTest
+    Examples.File.FilePrinter
+    Examples.Mergesort.MergeSort
 
   build-depends:
     base >= 4.0     && < 5,
@@ -68,3 +77,18 @@ library
     DeriveDataTypeable
 
   ghc-options: -W
+
+Test-Suite TestStreamHS
+  type:              exitcode-stdio-1.0
+  main-is:           TestStreamHS.hs
+  build-depends:     base >= 4.4 && < 5,
+                     HUnit >= 1.2 && < 1.3,
+                     test-framework >= 0.6 && < 0.9,
+                     test-framework-hunit >= 0.2.0 && < 0.4,
+                     haskell-streamit
+  ghc-options:       -Wall -fno-warn-unused-do-bind
+  hs-source-dirs:    tests
+  extensions:
+    GADTs
+    FlexibleInstances
+    TemplateHaskell
