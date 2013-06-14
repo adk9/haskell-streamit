@@ -26,21 +26,36 @@ codeStreamIt ty name node = do
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: GraphInfo -> IO String
 codeGraph (ty, name, sn) = case sn of
-  DeclS (Var inp n v) -> if inp
-                       then return ""
-                       else return (showConstType (const' v) ++ " " ++ n
-                                    ++ " = " ++ showConst (const' v) ++ ";\n")
-  AssignS a b       -> return (show a ++ " = " ++ codeExpr b ++ ";")
+  DeclS v -> if inp v
+             then return ""
+             else let c = (const' $ val v) in
+             if (isScalar c)
+             then return (showConstType c ++ " " ++ (vname v)
+                          ++ " = " ++ show (const' $ val v) ++ ";\n")
+             else return (showConstType c ++ " " ++ (vname v) ++ ";\n")
+  AssignS a b       -> return (show a ++ " = " ++ show b ++ ";\n")
   BranchS a b Empty -> do
     bs <- codeGraph (ty, name, b)
-    return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "}\n")
+    return ("if (" ++ show a ++ ") {\n" ++ indent bs ++ "}\n")
   BranchS a b c     -> do
     bs <- codeGraph (ty, name, b)
     cs <- codeGraph (ty, name, c)
-    return ("if (" ++ codeExpr a ++ ") {\n" ++ indent bs ++ "} else {\n"
+    return ("if (" ++ show a ++ ") {\n" ++ indent bs ++ "} else {\n"
             ++ indent cs ++ "}\n")
-  AddS n _ args     -> return ("add " ++ n ++ "("
-                               ++ (intercalate ", " $ map codeExpr args) ++ ");\n")
+  LoopS Empty a Empty b -> do
+    bs <- codeGraph (ty, name, b)
+    return ("while (" ++ show a ++ ") {\n" ++ indent bs ++ "}\n")
+  LoopS a b c d     -> do
+    ds <- codeGraph (ty, name, d)
+    return ("for (" ++ codeGraphExpr a ++ "; " ++ show b ++ "; "
+      ++ codeGraphExpr c ++ ") {\n" ++ indent ds ++ "}\n")
+  AddS n _ (Just a) Nothing Nothing -> return ("add " ++ n ++ "(" ++ show a ++ ");\n")
+  AddS n _ (Just a) (Just b) Nothing -> return ("add " ++ n ++ "(" ++ show a
+                                                ++ ", " ++ show b ++ ");\n")
+  AddS n _ (Just a) (Just b) (Just c) -> return ("add " ++ n ++ "(" ++ show a
+                                                 ++ ", " ++ show b ++ ", "
+                                                 ++ show c ++ ");\n")
+  AddS n _ _ _ _ -> return ("add " ++ n ++ "();\n")
   Pipeline False a  -> do
     as <- codeGraph (ty, name, a)
     return (ty ++ " pipeline " ++ name ++ "("
@@ -65,16 +80,23 @@ codeGraph (ty, name, sn) = case sn of
     False -> return ("add FileReader<" ++ showConstType ty ++ ">(\"" ++ name ++ "\");\n")
     True ->  return ("add FileWriter<" ++ showConstType ty ++ ">(\"" ++ name ++ "\");\n")
   Empty             -> return ""
+  where
+    codeGraphExpr :: StatementS -> String
+    codeGraphExpr a = case a of
+      AssignS a b -> show a ++ " = " ++ show b
+      Chain a b   -> codeGraphExpr a ++ codeGraphExpr b
+      _  	  -> ""
 
 -- | Walk down the Stream AST and find the declared inputs to print.
 codeInputS :: StatementS -> [String]
 codeInputS a = case a of
-  DeclS (Var inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  BranchS _ b c     -> codeInputS b ++ codeInputS c
-  Pipeline _ a      -> codeInputS a
-  SplitJoin _ a     -> codeInputS a
-  Chain a b         -> codeInputS a ++ codeInputS b
-  _                 -> []
+  DeclS v       -> if (inp v) then [showConstType (const' $ val v) ++ " " ++ vname v] else []
+  BranchS _ b c -> codeInputS b ++ codeInputS c
+  LoopS _ _ _ a -> codeInputS a
+  Pipeline _ a  -> codeInputS a
+  SplitJoin _ a -> codeInputS a
+  Chain a b     -> codeInputS a ++ codeInputS b
+  _             -> []
 
 -- | Generate StreamIt code inside a filter.
 codeFilter :: FilterInfo -> IO String
@@ -85,90 +107,47 @@ codeFilter (ty, name, stmt) = return (ty ++ " filter " ++ name ++ "("
 -- | Walk down the Filter AST and find the declared inputs to print.
 codeInput :: Statement -> [String]
 codeInput a = case a of
-  Decl (Var inp n v) -> if inp then [showConstType (const' v) ++ " " ++ n] else []
-  Branch _ b c     -> codeInput b ++ codeInput c
-  Loop _ _ _ a     -> codeInput a
-  Sequence a b     -> codeInput a ++ codeInput b
-  Init a           -> codeInput a
-  Work _ a         -> codeInput a
-  _                -> []
+  Decl v       -> if (inp v) then [showConstType (const' $ val v) ++ " " ++ vname v] else []
+  Branch _ b c -> codeInput b ++ codeInput c
+  Loop _ _ _ a -> codeInput a
+  Sequence a b -> codeInput a ++ codeInput b
+  Init a       -> codeInput a
+  Work _ a     -> codeInput a
+  _            -> []
 
 instance Show Statement where show = codeStmt "none"
 
 -- | Generate code corresponding to a StreamIt statement.
 codeStmt :: Name -> Statement -> String
 codeStmt name a = case a of
-  Decl (Var inp n v) -> if inp then ""
-                      else showConstType (const' v) ++ " " ++ n ++ " = "
-                           ++ showConst (const' v) ++ ";\n"
+  Decl v -> if inp v then ""
+            else let c = (const' $ val v) in
+            if (isScalar c)
+            then (showConstType c ++ " " ++ (vname v)
+                  ++ " = " ++ show (const' $ val v) ++ ";\n")
+            else (showConstType c ++ " " ++ (vname v) ++ ";\n")
   Assign _ _       -> codeStmtExpr a ++ ";\n"
-  Branch a b Null  -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
-  Branch a b c     -> "if (" ++ codeExpr a ++ ") {\n" ++ indent (codeStmt name b)
+  Branch a b Null  -> "if (" ++ show a ++ ") {\n" ++ indent (codeStmt name b) ++ "}\n"
+  Branch a b c     -> "if (" ++ show a ++ ") {\n" ++ indent (codeStmt name b)
                       ++ "} else {\n" ++ indent (codeStmt name c) ++ "}\n"
-  Loop Null a Null b -> "while (" ++ codeExpr a ++ ") {\n"
+  Loop Null a Null b -> "while (" ++ show a ++ ") {\n"
                         ++ indent (codeStmt name b) ++ "}\n"
-  Loop a b c d     -> "for (" ++ codeStmtExpr a ++ "; " ++ codeExpr b ++ "; "
+  Loop a b c d     -> "for (" ++ codeStmtExpr a ++ "; " ++ show b ++ "; "
                       ++ codeStmtExpr c ++ ") {\n" ++ indent (codeStmt name d)
                       ++ "}\n"
   Sequence a b     -> codeStmt name a ++ codeStmt name b
   Init a           -> "init {\n" ++ indent (codeStmt name a) ++ "}\n"
-  Work rate d      -> "work " ++ showFlowRate rate
+  Work rate d      -> "work " ++ show rate
                       ++ " {\n" ++ indent (codeStmt name d) ++ "}\n"
-  Push a           -> "push(" ++ codeExpr a ++ ");\n"
+  Push a           -> "push(" ++ show a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
   Println a        -> "println(" ++ codeStmtExpr a ++ ");\n"
   Null             -> ""
   where
     codeStmtExpr :: Statement -> String
     codeStmtExpr a = case a of
-      Assign a b     -> show a ++ " = " ++ codeExpr b
+      Assign a b     -> show a ++ " = " ++ show b
       Sequence a b   -> codeStmtExpr a ++ codeStmtExpr b
       Pop	     -> "pop()"
       _  	     -> ""
 
-    showFlowRate :: Rate -> String
-    showFlowRate Rate {pushRate=a, popRate=b, peekRate=c} =
-      intercalate " " $ zipWith showf ["push","pop","peek"] [a,b,c]
-        where
-          showf tag rate = case rate of
-            Const 0 -> ""
-            _       -> tag ++ " " ++ codeExpr rate
-
-codeExpr :: Exp a -> String
-codeExpr a = case a of
-  Ref a     -> show a
-  Peek a    -> "peek(" ++ codeExpr a ++ ")"
-  Const a   -> showConst $ const' a
-  Add a b   -> group [codeExpr a, "+", codeExpr b]
-  Sub a b   -> group [codeExpr a, "-", codeExpr b]
-  Mul a b   -> group [codeExpr a, "*", codeExpr b]
-  Div a b   -> group [codeExpr a, "/", codeExpr b]
-  Mod a b   -> group [codeExpr a, "%", showConst (const' b)]
-  Not a     -> group ["!", codeExpr a]
-  And a b   -> group [codeExpr a, "&&",  codeExpr b]
-  Or  a b   -> group [codeExpr a, "||",  codeExpr b]
-  Eq  a b   -> group [codeExpr a, "==",  codeExpr b]
-  Lt  a b   -> group [codeExpr a, "<",   codeExpr b]
-  Gt  a b   -> group [codeExpr a, ">",   codeExpr b]
-  Le  a b   -> group [codeExpr a, "<=",  codeExpr b]
-  Ge  a b   -> group [codeExpr a, ">=",  codeExpr b]
-  Mux a b c -> group [codeExpr a, "?", codeExpr b, ":", codeExpr c] 
-  where
-    group :: [String] -> String
-    group a = "(" ++ intercalate " " a ++ ")"
-
-showConst :: Const -> String
-showConst a = case a of
-  Bool  True  -> "true"
-  Bool  False -> "false"
-  Int   a     -> show a
-  Float a     -> show a
-  Void _      -> ""
-
-
-showConstType :: Const -> String
-showConstType a = case a of
-  Bool  _ -> "boolean"
-  Int   _ -> "int"
-  Float _ -> "float"
-  Void _  -> "void"

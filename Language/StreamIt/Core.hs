@@ -8,7 +8,7 @@ module Language.StreamIt.Core
   , NumE
   , Const (..)
   , Void
-  , Array  
+  , Array (..)
   , true
   , false
   , constant
@@ -18,42 +18,49 @@ module Language.StreamIt.Core
   , (||.)
   , and_
   , or_
-  , (-->)
   , (==.)
-  , (/=.)
+  , (/==.)
   , (<.)
   , (<=.)
   , (>.)
   , (>=.)
+  , (.++)
+  , (.--)
+  , (+=.)
+  , (-=.)
+  , (*=.)
+  , (/=.)
   , mod_
   , showTypeSig
+  , showConstType
+  , isScalar
   , (!)
   ) where
 
+import Data.List
 import Data.Ratio
 import Data.Typeable
 
---infixl 9 !, !.
+infixl 9 !
 infixl 7 `mod_`
-infix  4 ==., /=., <., <=., >., >=.
+infix  4 ==., /==., <., <=., >., >=.
+infix  4 .++, .--, +=., -=., *=., /=.
 infixl 3 &&.
 infixl 2 ||.
-infixr 1 -->
 infixr 0 <==
 
 type TypeSig = String
 type Name = String
 
--- | A phantom type for describing StreamIt array types.
-data Array a 
-
 -- | A mutable variable.
-data Var a
-  = Var Bool Name a
-    -- RRN: What does this Bool do??
-  deriving Eq
+data Var a = Var {
+  inp   :: Bool,      -- if the variable is a filter input or not
+  vname :: Name,      -- name of the variable
+  val   :: Elt a => a -- initial value
+  }
 
-instance Show (Var a) where show (Var _ n _) = n
+instance Show (Var a) where
+  show (Var _ n _) = n
 
 class Eq a => Elt a where
   zero   :: a
@@ -71,6 +78,10 @@ instance Elt Float where
   zero = 0
   const' = Float
 
+class    (Elt a, Num a, Ord a) => NumE a
+instance NumE Int
+instance NumE Float
+
 data Void
 instance Show Void where show _ = "Void"
 instance Eq Void where _ == _ = True
@@ -81,35 +92,45 @@ instance Elt Void where
   zero = undefined
   const' = Void
 
-class    Elt a => NumE a
-instance NumE Int
-instance NumE Float
+-- | A phantom type for describing StreamIt array types.
+data Array a = Array {
+  bound :: Exp Int, -- array upper bound
+  ele   :: a        -- array element type
+  } deriving (Show, Eq)
+
+instance (Elt a) => Elt (Array a) where
+  zero = Array (constant 0) zero
+  const' (Array b e) = ArrayT b (const' e)
 
 -- | Generic variable declarations.
 class Monad a => CoreE a where
-  var :: Elt b  => Bool -> b -> a (Var b)
-  input :: Elt b => a (Var b) -> a (Var b)
+  var    :: Elt b  => Bool -> b -> a (Var b)
+  input  :: Elt b => a (Var b) -> a (Var b)
 
   -- Float variable declarations.
-  float :: a (Var Float)
+  float  :: a (Var Float)
   float' :: Float -> a (Var Float)
   -- Int variable declarations.
-  int :: a (Var Int)
-  int' :: Int -> a (Var Int)
+  int    :: a (Var Int)
+  int'   :: Int -> a (Var Int)
   -- Bool variable declarations.
-  bool :: a (Var Bool)
-  bool' :: Bool -> a (Var Bool)
+  bool   :: a (Var Bool)
+  bool'  :: Bool -> a (Var Bool)
+  -- Array declarations.
+  array  :: Elt b => a (Var b) -> Exp Int -> a (Var (Array b))
   -- Assignments.
-  (<==) :: Elt b => Var b -> Exp b -> a ()
+  (<==)  :: Elt b => Var b -> Exp b -> a ()
   -- Conditional statements.
   ifelse :: Exp Bool -> a () -> a () -> a ()
-  if_ :: Exp Bool -> a () -> a ()
+  if_    :: Exp Bool -> a () -> a ()
+  -- Loops
+  for_   :: (a (), Exp Bool, a ()) -> a () -> a ()
+  while_ :: Exp Bool -> a () -> a ()
 
 -- | A logical, arithmetic, comparative, or conditional expression.
 data Exp a where
   Ref   :: Elt a => Var a -> Exp a
-  Peek  :: Elt a => Exp Int -> Exp a -- RRN: Shouldn't this take an exp int?  Further,
-                                     -- this has an effect so it should be in the
+  Peek  :: Elt a => Exp Int -> Exp a -- RRN: this has an effect so it should be in the
                                      -- Filter monad.
   Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
@@ -127,10 +148,33 @@ data Exp a where
   Ge    :: NumE a => Exp a -> Exp a -> Exp Bool
   Mux   :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
 
-instance Show   (Exp a) where show = undefined
-instance Eq   (Exp a) where (==) = undefined
+instance Show (Exp a) where
+  show a = case a of
+    Ref a     -> show a
+    Peek a    -> "peek(" ++ show a ++ ")"
+    Const a   -> show $ const' a
+    Add a b   -> group [show a, "+", show b]
+    Sub a b   -> group [show a, "-", show b]
+    Mul a b   -> group [show a, "*", show b]
+    Div a b   -> group [show a, "/", show b]
+    Mod a b   -> group [show a, "%", show (const' b)]
+    Not a     -> group ["!", show a]
+    And a b   -> group [show a, "&&",  show b]
+    Or  a b   -> group [show a, "||",  show b]
+    Eq  a b   -> group [show a, "==",  show b]
+    Lt  a b   -> group [show a, "<",   show b]
+    Gt  a b   -> group [show a, ">",   show b]
+    Le  a b   -> group [show a, "<=",  show b]
+    Ge  a b   -> group [show a, ">=",  show b]
+    Mux a b c -> group [show a, "?", show b, ":", show c] 
+    where
+      group :: [String] -> String
+      group a = "(" ++ intercalate " " a ++ ")"
 
-instance (Num a, Elt a, NumE a) => Num (Exp a) where
+instance Eq a => Eq (Exp a) where
+  a == b = evalExp a == evalExp b
+
+instance NumE a => Num (Exp a) where
   (+) = Add
   (-) = Sub
   (*) = Mul
@@ -148,12 +192,55 @@ instance Fractional (Exp Float) where
   recip a = 1 / a
   fromRational r = Const $ fromInteger (numerator r) / fromInteger (denominator r)
 
+evalExp :: Exp a -> a
+evalExp e = case e of
+  Ref a     -> val a
+  Peek _    -> error "peek" -- ADK: Peek should not be here.
+  Const a   -> a
+  Add a b   -> evalExp a + evalExp b
+  Sub a b   -> evalExp a - evalExp b
+  Mul a b   -> evalExp a * evalExp b
+  Div _ _   -> undefined
+  Mod a b   -> evalExp a `mod` b
+  Not a     -> not $ evalExp a
+  And a b   -> evalExp a &&  evalExp b
+  Or  a b   -> evalExp a ||  evalExp b
+  Eq  a b   -> evalExp a ==  evalExp b
+  Lt  a b   -> evalExp a < evalExp b
+  Gt  a b   -> evalExp a > evalExp b
+  Le  a b   -> evalExp a <= evalExp b
+  Ge  a b   -> evalExp a >= evalExp b
+  Mux a b c -> if (evalExp a) then evalExp b else evalExp c
+
 data Const
   = Bool   Bool
   | Int    Int
   | Float  Float
   | Void   Void
-  deriving (Show, Eq, Ord)
+  | ArrayT (Exp Int) Const
+  deriving (Eq)
+
+isScalar :: Const -> Bool
+isScalar c = case c of
+  ArrayT _ _ -> False
+  _        -> True
+
+instance Show (Const) where
+  show a = case a of
+    Bool  True  -> "true"
+    Bool  False -> "false"
+    Int   a     -> show a
+    Float a     -> show a
+    Void _      -> ""
+    ArrayT b e  -> "{" ++ (intercalate "," $ replicate (evalExp b) (show e)) ++ "}"
+
+showConstType :: Const -> String
+showConstType a = case a of
+  Bool  _     -> "boolean"
+  Int   _     -> "int"
+  Float _     -> "float"
+  Void _      -> "void"
+  ArrayT b e  -> (showConstType e) ++ "[" ++ show b ++ "]"
 
 -- | True term.
 true :: Exp Bool
@@ -180,8 +267,13 @@ not_ = Not
 (||.) = Or
 
 -- | Array Dereference:
-(!) :: Var (Array a) -> Exp Int -> Exp a 
-(!) = error "FINISHME: Streamit array dereference"
+(!) :: Elt a => Var (Array a) -> Exp Int -> Var a 
+(Var inp name arr) ! idx = -- ADK: NOTE: We might not be able to statically evaluate the
+                           --      index every time. This is just an optimistic check.
+  let i = evalExp idx in
+  let b = evalExp $ (bound arr) in
+  if (i <= b) then Var inp (name ++ "[" ++ show idx ++ "]") $ ele arr
+  else error $ "invalid array index: " ++ show i ++ " in " ++ name ++ "[" ++ show b ++ "]"
 
 -- | The conjunction of a Exp Bool list.
 and_ :: [Exp Bool] -> Exp Bool
@@ -191,17 +283,13 @@ and_ = foldl (&&.) true
 or_ :: [Exp Bool] -> Exp Bool
 or_ = foldl (||.) false
 
--- | Logical implication.
-(-->) :: Exp Bool -> Exp Bool -> Exp Bool 
-a --> b = not_ a ||. b
-
 -- | Equal.
 (==.) :: Elt a => Exp a -> Exp a -> Exp Bool
 (==.) = Eq
 
 -- | Not equal.
-(/=.) :: Elt a => Exp a -> Exp a -> Exp Bool
-a /=. b = not_ (a ==. b)
+(/==.) :: Elt a => Exp a -> Exp a -> Exp Bool
+a /==. b = not_ (a ==. b)
 
 -- | Less than.
 (<.) :: NumE a => Exp a -> Exp a -> Exp Bool
@@ -227,6 +315,30 @@ mod_ a b = Mod a b
 -- | References a variable to be used in an expression.
 ref :: Elt a => Var a -> Exp a
 ref = Ref
+
+-- | Increments a Var Int.
+(.++) :: CoreE a => Var Int -> a ()
+(.++) a = a <== ref a + 1
+
+-- | Decrements a Var Int.
+(.--) :: CoreE a => Var Int -> a ()
+(.--) a = a <== ref a - 1
+
+-- | Sum assign a Var Int.
+(+=.) :: CoreE a => Var Int -> Var Int -> a ()
+a +=. b = a <== ref a + ref b
+
+-- | Subtract and assign a Var Int.
+(-=.) :: CoreE a => Var Int -> Var Int -> a ()
+a -=. b = a <== ref a - ref b
+
+-- | Product assign a Var Int.
+(*=.) :: CoreE a => Var Int -> Var Int -> a ()
+a *=. b = a <== ref a * ref b
+
+-- | Divide and assign a Var Int.
+(/=.) :: CoreE a => Var Int -> Var Int -> a ()
+a /=. b = a <== ref a / ref b
 
 -- | Return the type signature of a Filter or StreamIt monad
 showTypeSig :: Typeable a => a -> String

@@ -7,8 +7,10 @@ module Language.StreamIt.Graph
   , execStream
   , findDefs
   , showStreamItType
-  , add'
   , add
+  , add1
+  , add2
+  , add3
   , pipeline
   , pipeline_
   , splitjoin
@@ -34,7 +36,8 @@ data StatementS where
   DeclS     :: Elt a => Var a -> StatementS
   AssignS   :: Elt a => Var a -> Exp a -> StatementS
   BranchS   :: Exp Bool -> StatementS -> StatementS -> StatementS
-  AddS      :: (AddE a, Elt b) => Name -> a -> [Exp b] -> StatementS
+  LoopS     :: StatementS -> Exp Bool -> StatementS -> StatementS -> StatementS
+  AddS      :: AddE a => Name -> a -> Maybe (Exp b) -> Maybe (Exp c) -> Maybe (Exp d) -> StatementS
   Pipeline  :: Bool -> StatementS -> StatementS
   SplitJoin :: Bool -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
@@ -84,7 +87,7 @@ instance (Elt a, Elt b) => MonadTrans (StreamItT a b) where
     return (a, s)
 
 instance (Elt a, Elt b, MonadIO m) => MonadIO (StreamItT a b m) where
-	liftIO = lift . liftIO
+  liftIO = lift . liftIO
 
 addNode :: (Elt a, Elt b, Monad m) => StatementS -> StreamItT a b m ()
 addNode n = StreamItT $ \ (id, node) -> return ((), (id, Chain node n))
@@ -115,17 +118,25 @@ put s = StreamItT $ \ _ -> return ((), s)
     some of the examples look less verbose.
 -}
 class AddE a where
-  add' :: (Elt b, Elt c, Elt d) => a -> [Exp d] -> StreamIt b c ()
   add  :: (Elt b, Elt c) => a -> StreamIt b c ()
+  add1 :: (Elt b, Elt c) => a -> (Exp d) -> StreamIt b c ()
+  add2 :: (Elt b, Elt c) => a -> (Exp d, Exp e) -> StreamIt b c ()
+  add3 :: (Elt b, Elt c) => a -> (Exp d, Exp e, Exp f) -> StreamIt b c ()
   info :: Name -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
-  add' a b = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a b
   add  a = do
     n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a ([]::[Exp Int])
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a Nothing Nothing Nothing
+  add1 a (b) = do
+    n <- lift $ makeStableName a
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) Nothing Nothing
+  add2 a (b,c) = do
+    n <- lift $ makeStableName a
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) Nothing
+  add3 a (b,c,d) = do
+    n <- lift $ makeStableName a
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) (Just d)
   info a b = do
     (f, g) <- S.get
     bs <- liftIO $ execStmt b
@@ -136,12 +147,18 @@ instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
       ty = showFilterType b
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
-  add' a b = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a b
   add  a = do
     n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a ([]::[Exp Int])
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a Nothing Nothing Nothing
+  add1 a (b) = do
+    n <- lift $ makeStableName a
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) Nothing Nothing
+  add2 a (b,c) = do
+    n <- lift $ makeStableName a
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) Nothing
+  add3 a (b,c,d) = do
+    n <- lift $ makeStableName a
+    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) (Just d)  
   info a b = do
     (f, g) <- S.get
     bs <- liftIO $ execStream b
@@ -159,13 +176,16 @@ instance (Elt a, Elt b) => CoreE (StreamIt a b) where
     n <- lift newUnique
     put (id, Chain stmt $ DeclS (Var input ("var" ++ show (hashUnique n)) init))
     return $ Var input ("var" ++ show (hashUnique n)) init
-  input _ = var True zero
+  input v = do
+    v' <- v
+    var True (val v')
   float = var False zero
   float' = var False
   int = var False zero
   int' = var False
   bool = var False zero
   bool' = var False
+  array _ size = var False (Array size zero)
   a <== b = addNode $ AssignS a b
   ifelse cond onTrue onFalse = do
     (id0, node) <- get
@@ -174,6 +194,18 @@ instance (Elt a, Elt b) => CoreE (StreamIt a b) where
     put (id2, node)
     addNode $ BranchS cond node1 node2
   if_ cond stmt = ifelse cond stmt $ return ()
+  for_ (init, cond, inc) body = do
+    (id0, stmt) <- get
+    (id1, stmt1) <- lift $ evalStream id0 body
+    ini <- lift $ execStream init
+    inc <- lift $ execStream inc
+    put (id1, stmt)
+    addNode $ LoopS ini cond inc stmt1
+  while_ cond body = do
+    (id0, stmt) <- get
+    (id1, stmt1) <- lift $ evalStream id0 body
+    put (id1, stmt)
+    addNode $ LoopS Empty cond Empty stmt1
 
 {-|
     The 'pipeline' function is used to declare a composite stream consisting of
@@ -231,7 +263,7 @@ type GraphInfo = (TypeSig, Name, StatementS)
 findDefs :: StatementS -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 findDefs a = case a of
   BranchS _ a b  -> findDefs a >> findDefs b
-  AddS a b _     -> info a b
+  AddS a b _ _ _ -> info a b
   Pipeline _ a   -> findDefs a
   SplitJoin _ a  -> findDefs a
   Chain a b      -> findDefs a >> findDefs b

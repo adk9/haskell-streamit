@@ -1,0 +1,47 @@
+int->void filter filt20()
+{
+	work  pop 1  {
+		println(pop());
+	}
+}
+
+int->int filter filt19()
+{
+	work  pop 2  {
+		int var9 = 0;
+		int var10 = 0;
+		push((var9 + var10));
+	}
+}
+
+void->int filter filt18(int var5, int[var5] var7)
+{
+	int var4 = 0;
+	int[var5] var6;
+	int var8 = 0;
+	init {
+		var8 = 0;
+	}
+	work push 1   {
+		push(var7[var8]);
+		var8 = (var8 + 1);
+		if ((var8 > var5)) {
+			var8 = 0;
+		}
+	}
+}
+
+void->void pipeline VectAdd()
+{
+	int var1 = 10;
+	int[20] var2;
+	int var3 = 0;
+	for (var3 = 0; (var3 < var1); var3 = (var3 + 1)) {
+		var2[(2 * var3)] = (2 * var3);
+		var2[((2 * var3) + 1)] = ((2 * var3) + 1);
+	}
+	add filt18((2 * var1), var2);
+	add filt19();
+	add filt20();
+}
+
