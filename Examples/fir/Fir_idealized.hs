@@ -5,8 +5,8 @@ import Language.StreamIt -- (Exp, Filter, Var)
 -- Functional layer:
 -- import qualified Language.StreamIt.Fun as F
 import qualified Prelude as P
-import Prelude ((+),(*),($), (.), error, return,
-                Int, Float, Num)
+import Prelude ((+),(-),(*),($), (.), error, return,
+                Int, Float, Num, Bool)
 
 {-
 
@@ -62,8 +62,10 @@ data Stream a = Stream [Exp a] Int
 --  Here we use a push/pull array hybrid where the consumer chooses which
 --  representation to use.
 -- 
---  (This combines push-arrays with the generalized-stream-fusion style multi-rep
---  bundling.)
+--  This combines push-arrays with the generalized-stream-fusion style multi-rep
+--  bundling.)  The benefit of push arrays is that they will provide safety while
+--  avoiding bounds-checks, at least if consumed by a reduction instead of used to
+--  populate an array.
 data SArray inT ouT a =
   SArray
   { pushrep :: PushArray inT ouT a
@@ -85,13 +87,27 @@ namedArr vr =
 --------------------------------------------------------------------------------
 
 -- FIXME: take into account the added elements!!!
-take :: Elt a => Exp Int -> Stream a -> SArray i o a
-take n (Stream [] cursor) =
+take :: forall i o a . Elt a => Exp Int -> Stream a -> SArray i o a
+take n (Stream ls cursor) =
   SArray
   { pullrep = peeker
   , pushrep = loopPusher n (peeker . ref)
   }
-  where peeker ix = peek (S.constant cursor + ix)
+  where
+    peeker ix = mkConds 0 ls ix $
+                \n -> peek (S.constant cursor + n)
+    mkConds :: Int -> [Exp a] -> Exp Int -> (Exp Int -> Exp a) -> Exp a
+    mkConds offset []      requestedIx conseq = conseq (requestedIx `minus` offset)
+    mkConds offset (hd:tl) requestedIx conseq =
+      cond (requestedIx ==. constant offset)
+           hd
+           (mkConds (offset+1) tl requestedIx conseq )
+
+    minus x 0 = x
+    minus x y = x - constant y 
+
+cond :: Exp Bool -> Exp a -> Exp a -> Exp a
+cond = error "FINISHME, cond "
 
 -- | Capture the common pattern of sequentially pushing all elements of the array
 -- with a for loop.
@@ -110,11 +126,10 @@ scons hd (Stream ls cursor) = Stream (hd:ls) cursor
 -- Shorthand:
 x <:> y = scons x y
 
-head :: Stream a -> S.Exp a
-head = error "head"
-
+-- | This replaces pop.
 tail :: Stream a -> Stream a
-tail = error "tail"
+tail (Stream [] cursor) = Stream [] (cursor+1)
+tail (Stream ls cursor) = Stream (P.tail ls) cursor  
 
 filter :: (Stream a -> (Stream a -> Stream b) -> Stream b) -> S.Filter a b ()
 filter = error "filter"
