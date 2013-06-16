@@ -74,7 +74,12 @@ example = pipeline$ do
 --------------------------------------------------------------------------------
 -- Types:
 
-type FunFilterM a b = StateT () (Filter a b)
+type FunFilterM a b = StateT FunState (Filter a b)
+data FunState = FunState { maxPeekMark :: Int, popCount :: Int }
+  deriving (Show, Eq)
+
+initFunState :: FunState
+initFunState = FunState 0 0
 
 -- | An abstract handle on the stream.
 data Stream a = Stream [Exp a] Int
@@ -166,7 +171,7 @@ funFilter :: forall a b . (Elt a, Elt b) =>
 funFilter kern = do
   let fm = kern initStrm cont 
 
-  (strmOut,()) <- runStateT fm ()
+  (strmOut,FunState{maxPeekMark}) <- runStateT fm initFunState
                   -- Uh, wrong place for effects?  Need to capture emitted code somehow?
                   -- Possibly use evalStmt here...
   trace ("GOT STRMOUT " ++ show strmOut) $ return ()
@@ -189,8 +194,10 @@ funFilter kern = do
  where
    initStrm = Stream [] 0
    
-   cont (Stream [] popCount) =     
+   cont (Stream [] pc) = do 
      -- FIXME: record popCount
+     -- modify (\ s@FunState{maxPeekMark} -> s{ maxPeekMark= P.max popCount maxPeekMark })
+     modify (\ s -> s{ popCount=pc })
      return (Stream [] 0) -- Fresh Stream 'b' to receive pushed elements...
      
    cont (Stream ls _) =
@@ -213,23 +220,6 @@ zipWith fn SArray{pushrep=push1, pullrep=pull1, arrlen=len1 }
 scons :: S.Exp a -> Stream a -> Stream a
 scons hd (Stream ls cursor) = Stream (hd:ls) cursor
 
-#if 0
---------------------OPTION 1: Pure SArray ops--------------------
-    
-sum :: (Num a, NumE a) => SArray i o a -> S.Exp a
-sum = fold (+) 0 
-
--- | Fold is a *consumer* of arrays.
-fold :: (Exp a -> Exp b -> Exp a) -> a -> SArray i o b -> S.Exp a
-fold fn init arr =   
-  error "Finishme - SArray fold"
-
--- Shorthand:
-x <:> y = scons x y
-
-#else
---------------------OPTION 2: Monadic SArray ops--------------------
-
 sum :: (Num a, NumE a) => SArray i o a -> S.Filter i o a
 sum = fold (+) 0 
 
@@ -251,4 +241,3 @@ x <:> y = do
   y' <- y
   return (scons x' y')
 
-#endif
