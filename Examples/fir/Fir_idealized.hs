@@ -1,14 +1,16 @@
 {-# LANGUAGE ExistentialQuantification, ScopedTypeVariables, CPP, NamedFieldPuns #-}
 
 import qualified Language.StreamIt as S
+import Control.Monad.State.Strict
 import Language.StreamIt -- (Exp, Filter, Var)
 import Language.StreamIt.Core
 -- Functional layer:
 -- import qualified Language.StreamIt.Fun as F
 import qualified Prelude as P
 import Control.Monad (mapM_, forM_, return)
-import Prelude ((+),(-),(*),($), (.), error, return,
-                Int, Float, Num, Bool)
+import Prelude ((+),(-),(*),($), (.), (++),error, return, show,
+                Int, Float, Num, Bool, Show, Read, Ord, Eq)
+import Debug.Trace
 
 {-
 
@@ -51,27 +53,34 @@ import Prelude ((+),(-),(*),($), (.), error, return,
 -- | The take is the source of the loops, other array ops get fused with that.
 fir :: Int -> SArray i o Float -> S.Filter Float Float ()
 fir n weights =
+-- n <- input int
   funFilter $ \ strm loopK -> 
     let window = take (S.constant n) strm in
     -- sum (zipWith (*) weights window) <:>
     --  loopK (tail strm)
-    sum (zipWith (*) weights window) <:>
-     loopK (tail strm)
+    
+--    sum (zipWith (*) weights window) <:>
+    loopK (tail strm)
+--    error "FINISHME - fir"
     
 example :: S.StreamIt Float Float ()
-example = do
+example = pipeline$ do
   weights <- array float 10
+  -- FIXME: This argument passing method won't work for this:
+  -- Passing Var's around is generally unsafe because it can break lexical scope:
   add (fir 10 (namedArr weights))
   
 
 --------------------------------------------------------------------------------
 -- Types:
 
+type FunFilterM a b = StateT () (Filter a b)
+
 -- | An abstract handle on the stream.
 data Stream a = Stream [Exp a] Int
   -- ^ It contains a cursor that starts at zero as well as a list of elements scons'd
   --   on the front, with the head of the list being the most recently added.
-
+  deriving (Show, Eq)
 
 -- | A StreamIt (staged) array.
 -- 
@@ -149,10 +158,19 @@ tail :: Stream a -> Stream a
 tail (Stream [] cursor) = Stream [] (cursor+1)
 tail (Stream ls cursor) = Stream (P.tail ls) cursor  
 
-funFilter :: (Elt a, Elt b) =>
-             (Stream a -> (Stream a -> Stream b) -> Stream b) -> S.Filter a b ()
-funFilter kern =
-  case kern initStrm cont of
+-- | Create a complete StreamIt filter, but build the body using the functional
+-- stream abstraction.
+funFilter :: forall a b . (Elt a, Elt b) =>
+             (Stream a -> (Stream a -> FunFilterM a b (Stream b)) -> FunFilterM a b (Stream b)) ->
+             S.Filter a b ()
+funFilter kern = do
+  let fm = kern initStrm cont 
+
+  (strmOut,()) <- runStateT fm ()
+                  -- Uh, wrong place for effects?  Need to capture emitted code somehow?
+                  -- Possibly use evalStmt here...
+  trace ("GOT STRMOUT " ++ show strmOut) $ return ()
+  case strmOut of
     -- All the push/pop actions a user can take end up in this output stream:
     Stream ls cursor -> do
       init' $ return ()
@@ -170,9 +188,10 @@ funFilter kern =
         return ()
  where
    initStrm = Stream [] 0
+   
    cont (Stream [] popCount) =     
      -- FIXME: record popCount
-     Stream [] 0 -- Fresh Stream 'b' to receive pushed elements...
+     return (Stream [] 0) -- Fresh Stream 'b' to receive pushed elements...
      
    cont (Stream ls _) =
      error "funFilter: cannot push elements back onto input stream; continuation arg must be a tail of the input stream."
@@ -194,7 +213,7 @@ zipWith fn SArray{pushrep=push1, pullrep=pull1, arrlen=len1 }
 scons :: S.Exp a -> Stream a -> Stream a
 scons hd (Stream ls cursor) = Stream (hd:ls) cursor
 
-#if 1
+#if 0
 --------------------OPTION 1: Pure SArray ops--------------------
     
 sum :: (Num a, NumE a) => SArray i o a -> S.Exp a
@@ -214,17 +233,22 @@ x <:> y = scons x y
 sum :: (Num a, NumE a) => SArray i o a -> S.Filter i o a
 sum = fold (+) 0 
 
-fold :: (Exp a -> Exp b -> Exp b) -> a -> SArray i o b -> S.Filter i o a
+fold :: (Exp a -> Exp b -> Exp a) -> a -> SArray i o b -> S.Filter i o a
 fold fn init arr@SArray{arrlen} = do 
   ix <- int
   sum <- int
   sum <== 0 
-  for_ (ix <== 0, ref ix <. arrlen, ix <== ref ix + 2) $ do 
+  for_ (ix <== 0, ref ix <. arrlen, ix <== ref ix + 2) $ do
     return ()
+  return (error "FINISH FOLD")
 
 -- Shorthand:
+(<:>) :: FunFilterM i o (Exp a) -> 
+         FunFilterM i o (Stream a) ->
+         FunFilterM i o (Stream a)
 x <:> y = do
+  x' <- x
   y' <- y
-  scons x y'
+  return (scons x' y')
 
 #endif
