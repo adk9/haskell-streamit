@@ -7,15 +7,19 @@ module Language.StreamIt
   , NumE
   , Void
   , Const (..)
-  , Array
+  , Array (..)
   -- * Expressions
   -- ** Constants
   , true
   , false
   , constant
   , zero
-  , incr
-  , decr
+  , (.++)
+  , (.--)
+  , (+=.)
+  , (-=.)
+  , (*=.)
+  , (/=.)
   -- ** Variable Reference
   , ref
   , (!)
@@ -25,10 +29,9 @@ module Language.StreamIt
   , (||.)
   , and_
   , or_
-  , (-->)
   -- ** Equality and Comparison
   , (==.)
-  , (/=.)
+  , (/==.)
   , (<.)
   , (<=.)
   , (>.)
@@ -46,6 +49,7 @@ module Language.StreamIt
   , int'
   , bool
   , bool'
+  , array
   -- ** Variable Assignment
   , (<==)
   -- ** Conditional Execution
@@ -68,7 +72,9 @@ module Language.StreamIt
   , init'
   -- ** StreamIt Aggregate Filters
   , add
-  , add'
+  , add1
+  , add2
+  , add3
   , pipeline
   , pipeline_
   , splitjoin

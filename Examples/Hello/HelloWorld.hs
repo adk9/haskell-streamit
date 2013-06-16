@@ -9,7 +9,7 @@ intSource = do
     x <== 0
 
   work Rate {pushRate=1, popRate=0, peekRate=0} $ do
-    incr x
+    (.++)x
     push(ref x)
 
 intPrinter :: Filter Int Void ()

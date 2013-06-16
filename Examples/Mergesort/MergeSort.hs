@@ -7,7 +7,7 @@ sortInput = do
   n <- input int
   work Rate {pushRate=ref n, popRate=0, peekRate=0} $ do
     i <- int
-    for_  (i <== 0, ref i <. ref n, incr i) $ do
+    for_  (i <== 0, ref i <. ref n, (.++)i) $ do
       push $ ref n - ref i
 
 intPrinter :: Filter Int Void ()
@@ -44,23 +44,23 @@ merger = do
     for_ (i <== ref leftover, ref i <. ref n, i <== ref i + 2)
       (push $ peek (ref i))
 
-    for_ (i <== 0, ref i <. ref n, incr i) pop
+    for_ (i <== 0, ref i <. ref n, (.++)i) pop
 
 sorter :: StreamIt Int Int ()
 sorter = pipeline $ do
   n <- input int
   if_ (ref n >. 2) (splitjoin_ $ do
                        split roundrobin
-                       add' sorter [ref n / 2]
-                       add' sorter [ref n / 2]
+                       add1 sorter (ref n / 2)
+                       add1 sorter (ref n / 2)
                        join roundrobin)
-  add' merger [ref n]
+  add1 merger (ref n)
 
 mergeSort :: StreamIt Void Void ()
 mergeSort = pipeline $ do
   numInputs <- int' 16
   mult <- int' 4
 
-  add' sortInput [ref numInputs / ref mult]
-  add' sorter [ref numInputs]
+  add1 sortInput (ref numInputs / ref mult)
+  add1 sorter (ref numInputs)
   add  intPrinter

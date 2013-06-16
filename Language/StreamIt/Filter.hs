@@ -11,18 +11,13 @@ module Language.StreamIt.Filter
   , push
   , peek
   , pop
-  , incr
-  , decr
   , println
   , work
   , init'
-  , ifelse
-  , if_
-  , for_
-  , while_
   ) where
 
 import Data.Char
+import Data.List
 import Data.Typeable
 import Data.Unique
 import Control.Monad.Trans
@@ -103,15 +98,19 @@ instance CoreE (Filter a b) where
   var input init = do
     (id, stmt) <- get
     n <- lift newUnique
-    put (id, Sequence stmt $ Decl (Var input ("var" ++ show (hashUnique n)) init))
-    return $ Var input ("var" ++ show (hashUnique n)) init
-  input _ = var True zero
+    let v = (Var input ("var" ++ show (hashUnique n)) init)
+    put (id, Sequence stmt $ Decl v)
+    return v
+  input v = do
+   v' <- v
+   var True (val v')
   float = var False zero
   float' = var False
   int = var False zero
   int' = var False
   bool = var False zero
   bool' = var False
+  array _ size = var False (Array size zero)
   a <== b = statement $ Assign a b
   ifelse cond onTrue onFalse = do
     (id0, stmt) <- get
@@ -120,14 +119,18 @@ instance CoreE (Filter a b) where
     put (id2, stmt)
     statement $ Branch cond stmt1 stmt2
   if_ cond stmt = ifelse cond stmt $ return ()
-
--- | Increments a Var Int.
-incr :: (Elt a, Elt b) => Var Int -> Filter a b ()
-incr a = a <== ref a + 1
-
--- | Decrements a Var Int.
-decr :: (Elt a, Elt b) => Var Int -> Filter a b ()
-decr a = a <== ref a - 1
+  for_ (init, cond, inc) body = do
+    (id0, stmt) <- get
+    (id1, stmt1) <- lift $ evalStmt id0 body
+    ini <- lift $ execStmt init
+    inc <- lift $ execStmt inc
+    put (id1, stmt)
+    statement $ Loop ini cond inc stmt1
+  while_ cond body = do
+    (id0, stmt) <- get
+    (id1, stmt1) <- lift $ evalStmt id0 body
+    put (id1, stmt)
+    statement $ Loop Null cond Null stmt1
 
 -- | Push
 push :: (Elt a, Elt b) => Exp b -> Filter a b ()
@@ -158,7 +161,17 @@ data Rate = Rate {
   pushRate :: Exp Int,
   popRate :: Exp Int, 
   peekRate :: Exp Int
-  } deriving (Show)
+  }
+
+showFlowRate :: Rate -> String
+showFlowRate Rate {pushRate=a, popRate=b, peekRate=c} =
+  intercalate " " $ zipWith showf ["push","pop","peek"] [a,b,c]
+    where
+      showf tag rate = case rate of
+        Const 0 -> ""
+        _       -> tag ++ " " ++ show rate
+
+instance Show Rate where show = showFlowRate
 
 rate :: Exp Int -> Exp Int -> Exp Int -> Rate
 rate = Rate
@@ -178,21 +191,3 @@ work rate s = do
   (id1, stmt1) <- lift $ evalStmt id0 s
   put (id1, stmt)
   statement $ Work rate stmt1
-
--- | For loop.
-for_ :: (Filter a b (), Exp Bool, Filter a b ()) -> Filter a b () -> Filter a b ()
-for_ (init, cond, inc) body = do
-  (id0, stmt) <- get
-  (id1, stmt1) <- lift $ evalStmt id0 body
-  ini <- lift $ execStmt init
-  inc <- lift $ execStmt inc
-  put (id1, stmt)
-  statement $ Loop ini cond inc stmt1
-
--- | While loop.
-while_ :: (Elt a, Elt b) => Exp Bool -> Filter a b () -> Filter a b ()
-while_ cond body = do
-  (id0, stmt) <- get
-  (id1, stmt1) <- lift $ evalStmt id0 body
-  put (id1, stmt)
-  statement $ Loop Null cond Null stmt1

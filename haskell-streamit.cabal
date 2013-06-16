@@ -48,6 +48,7 @@ library
     Examples.File.FileTest
     Examples.File.FilePrinter
     Examples.Mergesort.MergeSort
+    Examples.Vectadd.VectAdd
 
   build-depends:
     base >= 4.0     && < 5,
