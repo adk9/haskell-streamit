@@ -170,9 +170,12 @@ funFilter kern =
         return ()
  where
    initStrm = Stream [] 0
-   cont newStrm =
-     error "FINISHME"
-
+   cont (Stream [] popCount) =     
+     -- FIXME: record popCount
+     Stream [] 0 -- Fresh Stream 'b' to receive pushed elements...
+     
+   cont (Stream ls _) =
+     error "funFilter: cannot push elements back onto input stream; continuation arg must be a tail of the input stream."
 
 zipWith :: (Exp a -> Exp b -> Exp c) -> SArray i o a -> SArray i o b -> SArray i o c
 zipWith fn SArray{pushrep=push1, pullrep=pull1, arrlen=len1 }
