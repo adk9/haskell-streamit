@@ -16,7 +16,7 @@ module Language.StreamIt
   , zero
   , (.++)
   , (.--)
-  , (+=.)
+  , (+=)
   , (-=.)
   , (*=.)
   , (/=.)

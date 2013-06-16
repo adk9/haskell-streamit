@@ -26,7 +26,7 @@ module Language.StreamIt.Core
   , (>=.)
   , (.++)
   , (.--)
-  , (+=.)
+  , (+=)
   , (-=.)
   , (*=.)
   , (/=.)
@@ -45,7 +45,7 @@ import Data.Typeable
 infixl 9 !
 infixl 7 `mod_`
 infix  4 ==., /==., <., <=., >., >=.
-infix  4 .++, .--, +=., -=., *=., /=.
+infix  4 .++, .--, +=, -=., *=., /=.
 infixl 3 &&.
 infixl 2 ||.
 infixr 0 <==
@@ -96,9 +96,6 @@ instance Elt Void where
 
 -- | For describing StreamIt array types.
 data Array a = Array {
-  -- RRN: TODO: It would be nice for this to be (Either Int (Exp Int)) to catch the
-  -- case where HASKELL knows the static bound, and thus can omit bounds checks in
-  -- some cases.
   bound :: Exp Int, -- array upper bound
   ele   :: a        -- array element type
   } deriving (Show, Eq)
@@ -199,7 +196,8 @@ instance Fractional (Exp Float) where
 
 evalExp :: Exp a -> a
 evalExp e = case e of
-  Ref a     -> val a
+  Ref a     -> val a -- RRN: Is this a safe assumption?  That the variable will have its initial value?
+                     -- Seems like this function should return Maybe, and this should potentially be a Nothing case...
   Peek _    -> error "peek" -- ADK: Peek should not be here.
   Const a   -> a
   Add a b   -> evalExp a + evalExp b
@@ -334,8 +332,8 @@ ref = Ref
 (.--) a = a <== ref a - 1
 
 -- | Sum assign a Var Int.
-(+=.) :: CoreE a => Var Int -> Exp Int -> a ()
-a +=. b = a <== ref a + b
+(+=) :: CoreE a => Var Int -> Exp Int -> a ()
+a += b = a <== ref a + b
 
 -- | Subtract and assign a Var Int.
 (-=.) :: CoreE a => Var Int -> Exp Int -> a ()
