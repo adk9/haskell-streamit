@@ -35,6 +35,7 @@ module Language.StreamIt.Core
   , showConstType
   , isScalar
   , (!)
+  , cond
   ) where
 
 import Data.List
@@ -52,7 +53,8 @@ infixr 0 <==
 type TypeSig = String
 type Name = String
 
--- | A mutable variable.
+-- | A mutable variable, aka an LValue in C.  This includes both locations in arrays,
+-- as well as scalar variables.
 data Var a = Var {
   inp   :: Bool,      -- if the variable is a filter input or not
   vname :: Name,      -- name of the variable
@@ -92,8 +94,11 @@ instance Elt Void where
   zero = undefined
   const' = Void
 
--- | A phantom type for describing StreamIt array types.
+-- | For describing StreamIt array types.
 data Array a = Array {
+  -- RRN: TODO: It would be nice for this to be (Either Int (Exp Int)) to catch the
+  -- case where HASKELL knows the static bound, and thus can omit bounds checks in
+  -- some cases.
   bound :: Exp Int, -- array upper bound
   ele   :: a        -- array element type
   } deriving (Show, Eq)
@@ -306,6 +311,10 @@ a /==. b = not_ (a ==. b)
 -- | Greater than or equal.
 (>=.) :: NumE a => Exp a -> Exp a -> Exp Bool
 (>=.) = Ge
+
+-- | Expression level conditionals.
+cond :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
+cond = Mux
 
 -- | Modulo.
 mod_ :: Exp Int -> Int -> Exp Int

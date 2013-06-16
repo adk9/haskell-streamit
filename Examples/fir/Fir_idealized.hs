@@ -72,16 +72,17 @@ data SArray inT ouT a =
   , pullrep :: PullArray a 
   }  
 
-data PushArray inT ouT a = PushArray ((Exp Int -> Exp a -> Filter inT ouT ()) -> Filter inT ouT ())
+data PushArray inT ouT a =
+     PushArray ((Exp Int -> Exp a -> Filter inT ouT ()) -> Filter inT ouT ())
 type PullArray a = (Exp Int -> Exp a)
 
 -- | Turn a manifest array bound to a variable into an array that can be used with
 -- the combinators.
-namedArr :: Var (S.Array a) -> SArray i o a
+namedArr :: Elt a => Var (S.Array a) -> SArray i o a
 namedArr vr =
   SArray
-  { pushrep = loopPusher (constant 0) (\i -> vr  ! ref i)
-  , pullrep = (vr S.!) 
+  { pushrep = loopPusher (constant 0) (\i -> ref (vr  ! ref i))
+  , pullrep = ref . (vr S.!) 
   }
   
 --------------------------------------------------------------------------------
@@ -105,9 +106,6 @@ take n (Stream ls cursor) =
 
     minus x 0 = x
     minus x y = x - constant y 
-
-cond :: Exp Bool -> Exp a -> Exp a -> Exp a
-cond = error "FINISHME, cond "
 
 -- | Capture the common pattern of sequentially pushing all elements of the array
 -- with a for loop.
