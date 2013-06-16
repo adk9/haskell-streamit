@@ -51,18 +51,22 @@ import Debug.Trace
 -- Here's the version of Filter we can do:
 
 -- | The take is the source of the loops, other array ops get fused with that.
-fir :: Int -> SArray i o Float -> S.Filter Float Float ()
+fir :: Int -> SArray Float Float Float -> S.Filter Float Float ()
 fir n weights =
 -- n <- input int
-  funFilter $ \ strm loopK -> 
-    let window = take (S.constant n) strm in
+  funFilter $ \ strm loopK -> do
+    window <- take n strm
     -- sum (zipWith (*) weights window) <:>
     --  loopK (tail strm)
     
---    sum (zipWith (*) weights window) <:>
-    loopK (tail strm)
---    error "FINISHME - fir"
-    
+    sum (zipWith (*) weights window) <:>
+      loopK (tail strm)
+
+--     x <- sum (zipWith (*) weights window) 
+--     y <- loopK (tail strm)
+--     return (scons x y)
+
+
 example :: S.StreamIt Float Float ()
 example = pipeline$ do
   weights <- array float 10
@@ -122,15 +126,16 @@ namedArr vr =
 --------------------------------------------------------------------------------
 
 -- FIXME: take into account the added elements!!!
-take :: forall i o a . Elt a => Exp Int -> Stream a -> SArray i o a
-take n (Stream ls cursor) =
-  SArray
-  { pullrep = peeker
-   -- TODO: Opitimize for the case where we know the indices we're pushing to at the Haskell level...
-              --  We can avoid the generation of StreamIt conditionals below...
-  , pushrep = loopPusher n (peeker . ref)
-  , arrlen  = n
-  }
+take :: forall i o a . Elt a => Int -> Stream a -> FunFilterM i o (SArray i o a)
+take n (Stream ls cursor) = do
+  modify (\ s -> s { maxPeekMark= P.max (n + cursor) (maxPeekMark s) })
+  return $ SArray
+    { pullrep = peeker
+     -- TODO: Opitimize for the case where we know the indices we're pushing to at the Haskell level...
+                --  We can avoid the generation of StreamIt conditionals below...
+    , pushrep = loopPusher (constant n) (peeker . ref)
+    , arrlen  = constant n
+    }
   where
     peeker ix = mkConds 0 ls ix $
                 \n -> peek (S.constant cursor + n)
@@ -171,18 +176,19 @@ funFilter :: forall a b . (Elt a, Elt b) =>
 funFilter kern = do
   let fm = kern initStrm cont 
 
-  (strmOut,FunState{maxPeekMark}) <- runStateT fm initFunState
+  (strmOut,st) <- runStateT fm initFunState
                   -- Uh, wrong place for effects?  Need to capture emitted code somehow?
                   -- Possibly use evalStmt here...
-  trace ("GOT STRMOUT " ++ show strmOut) $ return ()
+  let FunState{maxPeekMark, popCount} = st                  
+  trace ("GOT STRMOUT " ++ show strmOut) $ return ()                                     
+  trace ("GOT STATE  " ++ show st) $ return ()
   case strmOut of
     -- All the push/pop actions a user can take end up in this output stream:
     Stream ls cursor -> do
       init' $ return ()
-      let peeks = 0 -- How do we know the high-water-mark of all PEEKS?  (e.g. takes)
       work Rate { pushRate= constant (P.length ls),
-                  popRate = constant cursor,
-                  peekRate= peeks } $ do
+                  popRate = constant popCount,
+                  peekRate= constant maxPeekMark } $ do
         -- Then we generate a solid block of pushes and pops:
         mapM_ push ls
         if cursor P.< 5 then
@@ -194,9 +200,7 @@ funFilter kern = do
  where
    initStrm = Stream [] 0
    
-   cont (Stream [] pc) = do 
-     -- FIXME: record popCount
-     -- modify (\ s@FunState{maxPeekMark} -> s{ maxPeekMark= P.max popCount maxPeekMark })
+   cont (Stream [] pc) = do
      modify (\ s -> s{ popCount=pc })
      return (Stream [] 0) -- Fresh Stream 'b' to receive pushed elements...
      
@@ -220,17 +224,17 @@ zipWith fn SArray{pushrep=push1, pullrep=pull1, arrlen=len1 }
 scons :: S.Exp a -> Stream a -> Stream a
 scons hd (Stream ls cursor) = Stream (hd:ls) cursor
 
-sum :: (Num a, NumE a) => SArray i o a -> S.Filter i o a
+sum :: (Num a, NumE a) => SArray i o a -> FunFilterM i o (Exp a)
 sum = fold (+) 0 
 
-fold :: (Exp a -> Exp b -> Exp a) -> a -> SArray i o b -> S.Filter i o a
-fold fn init arr@SArray{arrlen} = do 
-  ix <- int
-  sum <- int
-  sum <== 0 
+fold :: Elt a => (Exp a -> Exp b -> Exp a) -> a -> SArray i o b -> FunFilterM i o (Exp a)
+fold fn init arr@SArray{arrlen, pullrep} = lift$ do 
+  ix  <- int
+  acc <- var P.False init
   for_ (ix <== 0, ref ix <. arrlen, ix <== ref ix + 2) $ do
+    acc <== fn (ref acc) (pullrep$ ref ix)
     return ()
-  return (error "FINISH FOLD")
+  return (ref acc)
 
 -- Shorthand:
 (<:>) :: FunFilterM i o (Exp a) -> 
