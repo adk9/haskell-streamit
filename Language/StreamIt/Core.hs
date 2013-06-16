@@ -334,20 +334,20 @@ ref = Ref
 (.--) a = a <== ref a - 1
 
 -- | Sum assign a Var Int.
-(+=.) :: CoreE a => Var Int -> Var Int -> a ()
-a +=. b = a <== ref a + ref b
+(+=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a +=. b = a <== ref a + b
 
 -- | Subtract and assign a Var Int.
-(-=.) :: CoreE a => Var Int -> Var Int -> a ()
-a -=. b = a <== ref a - ref b
+(-=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a -=. b = a <== ref a - b
 
 -- | Product assign a Var Int.
-(*=.) :: CoreE a => Var Int -> Var Int -> a ()
-a *=. b = a <== ref a * ref b
+(*=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a *=. b = a <== ref a * b
 
 -- | Divide and assign a Var Int.
-(/=.) :: CoreE a => Var Int -> Var Int -> a ()
-a /=. b = a <== ref a / ref b
+(/=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a /=. b = a <== ref a / b
 
 -- | Return the type signature of a Filter or StreamIt monad
 showTypeSig :: Typeable a => a -> String
