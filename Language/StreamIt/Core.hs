@@ -24,7 +24,7 @@ module Language.StreamIt.Core
   , (>=.)
   , (.++)
   , (.--)
-  , (+=.)
+  , (+=)
   , (-=.)
   , (*=.)
   , (/=.)
@@ -33,6 +33,7 @@ module Language.StreamIt.Core
   , showConstType
   , isScalar
   , (!)
+  , cond
   ) where
 
 import Data.List
@@ -42,12 +43,13 @@ import Data.Typeable
 infixl 9 !
 infixl 7 `mod_`
 infix  4 ==., /==., <., <=., >., >=.
-infix  4 .++, .--, +=., -=., *=., /=.
+infix  4 .++, .--, +=, -=., *=., /=.
 infixl 3 &&.
 infixl 2 ||.
 infixr 0 <==
 
--- | A mutable variable.
+-- | A mutable variable, aka an LValue in C.  This includes both locations in arrays,
+-- as well as scalar variables.
 data Var a = Var {
   vname :: String,    -- name of the variable
   val   :: Elt a => a -- initial value
@@ -86,7 +88,7 @@ instance Elt Void where
   zero = undefined
   const' = Void
 
--- | A phantom type for describing StreamIt array types.
+-- | For describing StreamIt array types.
 data Array a = Array {
   bound :: Exp Int, -- array upper bound
   ele   :: a        -- array element type
@@ -186,7 +188,8 @@ instance Fractional (Exp Float) where
 
 evalExp :: Exp a -> a
 evalExp e = case e of
-  Ref a     -> val a
+  Ref a     -> val a -- RRN: Is this a safe assumption?  That the variable will have its initial value?
+                     -- Seems like this function should return Maybe, and this should potentially be a Nothing case...
   Peek _    -> error "peek" -- ADK: Peek should not be here.
   Const a   -> a
   Add a b   -> evalExp a + evalExp b
@@ -300,6 +303,10 @@ a /==. b = not_ (a ==. b)
 (>=.) :: NumE a => Exp a -> Exp a -> Exp Bool
 (>=.) = Ge
 
+-- | Expression level conditionals.
+cond :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
+cond = Mux
+
 -- | Modulo.
 mod_ :: Exp Int -> Int -> Exp Int
 mod_ _ 0 = error "divide by zero (mod_)"
@@ -322,17 +329,18 @@ ref = Ref
 (.--) a = a <== ref a - 1
 
 -- | Sum assign a Var Int.
-(+=.) :: CoreE a => Var Int -> Var Int -> a ()
-a +=. b = a <== ref a + ref b
+(+=) :: CoreE a => Var Int -> Exp Int -> a ()
+a += b = a <== ref a + b
 
 -- | Subtract and assign a Var Int.
-(-=.) :: CoreE a => Var Int -> Var Int -> a ()
-a -=. b = a <== ref a - ref b
+(-=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a -=. b = a <== ref a - b
 
 -- | Product assign a Var Int.
-(*=.) :: CoreE a => Var Int -> Var Int -> a ()
-a *=. b = a <== ref a * ref b
+(*=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a *=. b = a <== ref a * b
 
 -- | Divide and assign a Var Int.
-(/=.) :: CoreE a => Var Int -> Var Int -> a ()
-a /=. b = a <== ref a / ref b
+(/=.) :: CoreE a => Var Int -> Exp Int -> a ()
+a /=. b = a <== ref a / b
+

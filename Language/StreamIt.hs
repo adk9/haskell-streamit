@@ -16,7 +16,7 @@ module Language.StreamIt
   , zero
   , (.++)
   , (.--)
-  , (+=.)
+  , (+=)
   , (-=.)
   , (*=.)
   , (/=.)
@@ -29,6 +29,7 @@ module Language.StreamIt
   , (||.)
   , and_
   , or_
+  , cond
   -- ** Equality and Comparison
   , (==.)
   , (/==.)
