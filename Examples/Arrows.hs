@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE TypeSynonymInstances, GADTs #-}
 
 -- An example of how to wire StreamIt graphs with Arrows (if it is possible!)
 
@@ -6,50 +6,36 @@ import Language.StreamIt
 import Control.Arrow
 import Control.Category
 
--- type StreamItArrow a b = StreamIt a b ()
-newtype StreamItArrow a b = StreamItArrow { unArrow :: StreamIt a b () }
-
-instance Arrow StreamItArrow where  
-  arr fn = StreamItArrow $ do 
-    -- We are implicitly part of a pipeline, add one filter to it:
-    add $ do 
-      init' (return ())
-      work Rate {pushRate=1, popRate=1, peekRate=0} $ do
-        x <- pop 
-        push (fn x)
-    return ()
+-- | GADT Reifying the Arrow (and Category) type classes.
+data StreamItArrow a b where
+  Arr    :: (a -> b) -> StreamItArrow a b
+  First  :: StreamItArrow b c -> StreamItArrow (b,d) (c,d)
+  Second :: StreamItArrow b c -> StreamItArrow (d,b) (d,c)
+  Cat    ::  StreamItArrow b c -> StreamItArrow a b -> StreamItArrow a c 
+  
+instance Arrow StreamItArrow where
+  arr     = Arr
+  first s = First s
+  second  = Second
 
 instance Category StreamItArrow where
   -- Control.Category.id :: Category cat => cat a a
   -- (Control.Category..) :: cat b c -> cat a b -> cat a c
-  
--- arr :: (Arrow a) => (b -> c) -> a b c
--- first :: (Arrow a) => a b c -> a (b, d) (c, d)
--- second :: (Arrow a) => a b c -> a (d, b) (d, c)
- 
-  -- > newtype SimpleFunc a b = SimpleFunc {
--- >     runF :: (a -> b)
--- > }
--- >
--- > instance Arrow SimpleFunc where
--- >     arr f = SimpleFunc f
--- >     first (SimpleFunc f) = SimpleFunc (mapFst f)
--- >                   where mapFst g (a,b) = (g a, b)
--- >     second (SimpleFunc f) = SimpleFunc (mapSnd f)
--- >                   where mapSnd g (a,b) = (a, g b)
--- >
--- > instance Category SimpleFunc where
--- >     (SimpleFunc g) . (SimpleFunc f) = SimpleFunc (g . f)
--- >     id = arr id
+  id = Arr Prelude.id
+  ar1 . ar2 = Cat ar1 ar2
 
+-- | We can only run arrow computations that operate over Exp's 
+runIt :: (Elt a, Elt b) =>
+         StreamItArrow (Exp a) (Exp b) -> StreamIt a b ()
+runIt = error "foo"
 
-{-
+----------------------------------------
+
 intSource :: Filter Void Int ()
 intSource = do
   x <- int
   init' $ do
     x <== 0
-
   work Rate {pushRate=1, popRate=0, peekRate=0} $ do
     (.++)x
     push(ref x)
@@ -62,6 +48,19 @@ intPrinter = do
 helloWorld :: StreamIt Void Void ()
 helloWorld = pipeline $ do
   add intSource
-  arr (+1)
+--  arr (+1)
+  let a :: StreamItArrow (Exp Int) (Exp Int)
+      a = arr (+1)
+      r :: StreamIt Int Int ()
+      r = runIt a
+  add r
   add intPrinter
--}
+
+-- fn     = StreamItArrow $ do
+--     -- We are implicitly part of a pipeline, add one filter to it:
+--     add $ do
+--       init' (return ())
+--       work Rate {pushRate=1, popRate=1, peekRate=0} $ do
+--         x <- pop
+--         push (fn x)
+--     return ()
