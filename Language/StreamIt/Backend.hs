@@ -1,6 +1,6 @@
 module Language.StreamIt.Backend
   ( Target (..)
-  , code
+  , codeGen
   ) where
 
 import Language.StreamIt.Backend.StreamIt
@@ -15,9 +15,13 @@ data Target
   deriving Eq
 
 -- | Generate target code.
-code :: Target -> String -> Name -> StatementS -> IO (FilePath)
-code target ty name node = f ty name node
+codeGen :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> IO (FilePath)
+codeGen target s = do
+  st <- liftIO $ execStream s
+  fp <- f st
+  putStrLn $ "Generated file " ++ fp ++ "."
+  return fp
   where
-  f = case target of
-    StreamIt -> codeStreamIt
-    TBB -> codeTBB
+    f = case target of
+      StreamIt -> codeStreamIt
+      TBB -> codeTBB

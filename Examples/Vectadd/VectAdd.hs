@@ -11,10 +11,8 @@ vectAddKernel = do
 --    t2 <== pop
     push(ref t1 + ref t2)
 
-vectSource :: Filter Void Int ()
-vectSource = do
-  n <- input int
-  z <- input (array int $ ref n)
+vectSource :: (Exp Int, Exp (Array Int)) -> Filter Void Int ()
+vectSource (n,z) = do
   idx <- int
   init' $ do
     idx <== 0

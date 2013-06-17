@@ -2,8 +2,6 @@ module Language.StreamIt.Core
   ( Exp (..)
   , Var (..)
   , CoreE (..)
-  , TypeSig
-  , Name
   , Elt (..)
   , NumE
   , Const (..)
@@ -31,7 +29,7 @@ module Language.StreamIt.Core
   , (*=.)
   , (/=.)
   , mod_
-  , showTypeSig
+  , cond
   , showConstType
   , isScalar
   , (!)
@@ -49,18 +47,14 @@ infixl 3 &&.
 infixl 2 ||.
 infixr 0 <==
 
-type TypeSig = String
-type Name = String
-
 -- | A mutable variable.
 data Var a = Var {
-  inp   :: Bool,      -- if the variable is a filter input or not
-  vname :: Name,      -- name of the variable
+  vname :: String,    -- name of the variable
   val   :: Elt a => a -- initial value
   }
 
 instance Show (Var a) where
-  show (Var _ n _) = n
+  show (Var n _) = n
 
 class Eq a => Elt a where
   zero   :: a
@@ -104,9 +98,7 @@ instance (Elt a) => Elt (Array a) where
 
 -- | Generic variable declarations.
 class Monad a => CoreE a where
-  var    :: Elt b  => Bool -> b -> a (Var b)
-  input  :: Elt b => a (Var b) -> a (Var b)
-
+  var    :: Elt b  => b -> a (Var b)
   -- Float variable declarations.
   float  :: a (Var Float)
   float' :: Float -> a (Var Float)
@@ -146,7 +138,7 @@ data Exp a where
   Gt    :: NumE a => Exp a -> Exp a -> Exp Bool
   Le    :: NumE a => Exp a -> Exp a -> Exp Bool
   Ge    :: NumE a => Exp a -> Exp a -> Exp Bool
-  Mux   :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
+  Cond  :: Exp Bool -> Exp a -> Exp a -> Exp a
 
 instance Show (Exp a) where
   show a = case a of
@@ -166,7 +158,7 @@ instance Show (Exp a) where
     Gt  a b   -> group [show a, ">",   show b]
     Le  a b   -> group [show a, "<=",  show b]
     Ge  a b   -> group [show a, ">=",  show b]
-    Mux a b c -> group [show a, "?", show b, ":", show c] 
+    Cond a b c -> group [show a, "?", show b, ":", show c] 
     where
       group :: [String] -> String
       group a = "(" ++ intercalate " " a ++ ")"
@@ -179,8 +171,8 @@ instance NumE a => Num (Exp a) where
   (-) = Sub
   (*) = Mul
   negate a = 0 - a
-  abs a = Mux (Lt a 0) (negate a) a
-  signum a = Mux (Eq a 0) 0 $ Mux (Lt a 0) (-1) 1
+  abs a = Cond (Lt a 0) (negate a) a
+  signum a = Cond (Eq a 0) 0 $ Cond (Lt a 0) (-1) 1
   fromInteger = Const . fromInteger
 
 instance Fractional (Exp Int) where
@@ -210,7 +202,7 @@ evalExp e = case e of
   Gt  a b   -> evalExp a > evalExp b
   Le  a b   -> evalExp a <= evalExp b
   Ge  a b   -> evalExp a >= evalExp b
-  Mux a b c -> if (evalExp a) then evalExp b else evalExp c
+  Cond a b c -> if (evalExp a) then evalExp b else evalExp c
 
 data Const
   = Bool   Bool
@@ -268,11 +260,12 @@ not_ = Not
 
 -- | Array Dereference:
 (!) :: Elt a => Var (Array a) -> Exp Int -> Var a 
-(Var inp name arr) ! idx = -- ADK: NOTE: We might not be able to statically evaluate the
-                           --      index every time. This is just an optimistic check.
+(Var name arr) ! idx =
   let i = evalExp idx in
   let b = evalExp $ (bound arr) in
-  if (i <= b) then Var inp (name ++ "[" ++ show idx ++ "]") $ ele arr
+  -- ADK: NOTE: We might not be able to statically evaluate the
+  --      index every time. This is just an optimistic check.
+  if (i <= b) then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
   else error $ "invalid array index: " ++ show i ++ " in " ++ name ++ "[" ++ show b ++ "]"
 
 -- | The conjunction of a Exp Bool list.
@@ -312,6 +305,10 @@ mod_ :: Exp Int -> Int -> Exp Int
 mod_ _ 0 = error "divide by zero (mod_)"
 mod_ a b = Mod a b
 
+-- | Conditional Expression.
+cond :: Exp Bool -> Exp a -> Exp a -> Exp a
+cond = Cond
+
 -- | References a variable to be used in an expression.
 ref :: Elt a => Var a -> Exp a
 ref = Ref
@@ -339,7 +336,3 @@ a *=. b = a <== ref a * ref b
 -- | Divide and assign a Var Int.
 (/=.) :: CoreE a => Var Int -> Var Int -> a ()
 a /=. b = a <== ref a / ref b
-
--- | Return the type signature of a Filter or StreamIt monad
-showTypeSig :: Typeable a => a -> String
-showTypeSig = show . typeOf

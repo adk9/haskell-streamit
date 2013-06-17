@@ -6,7 +6,7 @@ import Examples.Mergesort.MergeSort (mergeSort)
 
 -- main :: IO ()
 -- main = do
---   genStreamIt "MergeSort" mergeSort
+--   genStreamIt mergeSort
 --   return ()
 
-main = runStreamIt $(compileStreamIt "MergeSort" mergeSort)
+main = runStreamIt $(compileStreamIt mergeSort)

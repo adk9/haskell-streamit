@@ -11,7 +11,7 @@ indent :: String -> String
 indent = unlines . map ("\t" ++) . lines
 
 -- | Generate StreamIt program.
-codeTBB :: String -> Name -> StatementS -> IO (FilePath)
+codeTBB :: String -> String -> StatementS -> IO (FilePath)
 codeTBB ty name node = do
   (fs, gs) <- S.execStateT (findDefs node) ([],[])
   filters <- mapM codeFilter fs
@@ -30,10 +30,8 @@ codeTBB ty name node = do
 -- | Generate StreamIt code for the aggregate filters.
 codeGraph :: GraphInfo -> IO String
 codeGraph (ty, name, sn) = case sn of
-  DeclS (Var inp n v) -> if inp
-                       then return ""
-                       else return (showConstType (const' v) ++ " " ++ n
-                                    ++ " = " ++ show (const' v) ++ ";\n")
+  DeclS (Var n v) -> return (showConstType (const' v) ++ " " ++ n
+                             ++ " = " ++ show (const' v) ++ ";\n")
   AssignS a b       -> return (show a ++ " = " ++ show b ++ ";")
   BranchS a b Empty -> do
     bs <- codeGraph (ty, name, b)
@@ -97,8 +95,8 @@ codeGraph (ty, name, sn) = case sn of
 codeFilter :: FilterInfo -> IO String
 codeFilter (_, name, stmt) = return ("class " ++ name ++ ": public tbb::filter {\n"
                                      ++ "public:\n\t" ++ name ++ "();\nprivate:\n"
-                                     ++ indent (findDecls stmt)
-                                     ++ "\tvoid* operator()(void* item);\n};\n\n"
+                                     ++ indent (intercalate ";\n" $ findDecls stmt)
+                                     ++ ";\n\tvoid* operator()(void* item);\n};\n\n"
                                      ++ (if (noInit stmt)
                                          then (name ++ "::" ++ name
                                                ++ "() : tbb::filter(serial_in_order) {}\n\n")
@@ -108,17 +106,18 @@ codeFilter (_, name, stmt) = return ("class " ++ name ++ ": public tbb::filter {
 -- | Walk down the Filter AST and find the declared inputs to print.
 findDecls :: Statement -> String
 findDecls a = case a of
-  Decl (Var _ n v) -> showConstType (const' v) ++ " " ++ n ++ ";\n"
-  Branch _ b c     -> findDecls b ++ findDecls c
-  Loop _ _ _ a     -> findDecls a
-  Sequence a b     -> findDecls a ++ findDecls b
-  Init a           -> findDecls a
-  _ -> ""
+  Decl (Var n v) -> showConstType (const' v) ++ " " ++ n
+  Branch _ b c   -> findDecls b ++ findDecls c
+  Loop _ _ _ a   -> findDecls a
+  Sequence a b   -> findDecls a ++ findDecls b
+  Init a         -> findDecls a
+  Work _ a       -> codeInput a
+  _              -> []
 
 instance Show Statement where show = codeStmt "none"
 
 -- | Generate code corresponding to a StreamIt statement.
-codeStmt :: Name -> Statement -> String
+codeStmt :: String -> Statement -> String
 codeStmt name a = case a of
   Decl (Var inp n v) -> if inp then ""
                       else showConstType (const' v) ++ " " ++ n ++ ";\n"

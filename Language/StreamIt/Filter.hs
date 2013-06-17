@@ -6,7 +6,6 @@ module Language.StreamIt.Filter
   , FilterInfo
   , evalStmt
   , execStmt
-  , showFilterType
   , rate
   , push
   , peek
@@ -68,6 +67,12 @@ instance MonadTrans (FilterT a b) where
 instance (MonadIO m) => MonadIO (FilterT a b m) where
 	liftIO = lift . liftIO
 
+-- Returns the complete type (int->int) of the filter
+instance (Typeable a, Typeable b, Typeable m) => Show (Filter a b m) where
+  show s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
+    where
+      t = words $ (show . typeOf) s
+
 statement :: (Monad m) => Statement -> FilterT a b m ()
 statement a = FilterT $ \ (id, statement) -> return ((), (id, Sequence statement a))
 
@@ -87,30 +92,24 @@ get = FilterT $ \ a -> return (a, a)
 put :: (Monad m) => (Int, Statement) -> FilterT a b m ()
 put s = FilterT $ \ _ -> return ((), s)
 
-type FilterInfo = (TypeSig, Name, Statement)
-
-showFilterType :: (Typeable a, Typeable b) => Filter a b () -> String 
-showFilterType s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
-  where
-    t = words $ showTypeSig s
+type FilterInfo = (String,    -- Type signature
+                   String,    -- Name of the filter
+                   Statement)
 
 instance CoreE (Filter a b) where
-  var input init = do
+  var init = do
     (id, stmt) <- get
     n <- lift newUnique
-    let v = (Var input ("var" ++ show (hashUnique n)) init)
-    put (id, Sequence stmt $ Decl v)
-    return v
-  input v = do
-   v' <- v
-   var True (val v')
-  float = var False zero
-  float' = var False
-  int = var False zero
-  int' = var False
-  bool = var False zero
-  bool' = var False
-  array _ size = var False (Array size zero)
+    let sym = Var ("var" ++ show (hashUnique n)) init
+    put (id, Sequence stmt $ Decl sym)
+    return sym
+  float = var zero
+  float' = var
+  int = var zero
+  int' = var
+  bool = var zero
+  bool' = var
+  array _ size = var (Array size zero)
   a <== b = statement $ Assign a b
   ifelse cond onTrue onFalse = do
     (id0, stmt) <- get

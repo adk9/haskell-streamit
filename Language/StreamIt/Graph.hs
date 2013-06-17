@@ -6,7 +6,6 @@ module Language.StreamIt.Graph
   , evalStream
   , execStream
   , findDefs
-  , showStreamItType
   , add
   , add1
   , add2
@@ -32,18 +31,20 @@ import System.Mem.StableName
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
 
+data FileMode = FileReader | FileWriter
+
 data StatementS where
   DeclS     :: Elt a => Var a -> StatementS
   AssignS   :: Elt a => Var a -> Exp a -> StatementS
   BranchS   :: Exp Bool -> StatementS -> StatementS -> StatementS
   LoopS     :: StatementS -> Exp Bool -> StatementS -> StatementS -> StatementS
-  AddS      :: AddE a => Name -> a -> Maybe (Exp b) -> Maybe (Exp c) -> Maybe (Exp d) -> StatementS
-  Pipeline  :: Bool -> StatementS -> StatementS
-  SplitJoin :: Bool -> StatementS -> StatementS
+  AddS      :: AddE a => String -> a -> Maybe (Exp b) -> Maybe (Exp c) -> Maybe (Exp d) -> StatementS
+  Pipeline  :: Maybe String -> StatementS -> StatementS
+  SplitJoin :: Maybe String -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
   Join      :: Joiner -> StatementS
   Chain     :: StatementS -> StatementS -> StatementS
-  File      :: Bool -> Const -> Name -> StatementS
+  File      :: FileMode -> Const -> String -> StatementS
   Empty     :: StatementS
 
 instance Eq (StatementS) where (==) _ _ = True
@@ -89,6 +90,12 @@ instance (Elt a, Elt b) => MonadTrans (StreamItT a b) where
 instance (Elt a, Elt b, MonadIO m) => MonadIO (StreamItT a b m) where
   liftIO = lift . liftIO
 
+-- Returns the complete type (int->int) of the pipeline filter
+instance (Typeable a, Typeable b, Typeable m) => Show (StreamIt a b m) where
+  show s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
+    where
+      t = words $ (show . typeOf) s
+
 addNode :: (Elt a, Elt b, Monad m) => StatementS -> StreamItT a b m ()
 addNode n = StreamItT $ \ (id, node) -> return ((), (id, Chain node n))
 
@@ -108,35 +115,40 @@ get = StreamItT $ \ a -> return (a, a)
 put :: (Elt a, Elt b, Monad m) => (Int, StatementS) -> StreamItT a b m ()
 put s = StreamItT $ \ _ -> return ((), s)
 
-{-|
-    The 'AddE' class represents the add expressions in the StreamIt EDSL. It currently
-    support two variants of the 'add' statement:
-    1. add - which accepts a filter or a pipeline that accepts no stream parameters.
-    2. add' - which is used for a filter/pipeline that accepts a list of stream parameters.
+-- Helper gensym function
+gensym :: AddE a => a -> String -> IO String
+gensym obj template = do
+  n <- lift $ makeStableName obj
+  return (template ++ show (hashStableName n))
 
-    @ add foo @ is equivalent to @ add' foo [] @ and thus, only provides sugar to make
-    some of the examples look less verbose.
+{-|
+    The 'AddE' class represents add expressions in the StreamIt EDSL. It currently
+    supports two variants of the 'add' statement:
+    1. add  - accepts a filter or a pipeline that accepts no stream parameters.
+    2. add' - used for a filter/pipeline that accepts a list of stream parameters.
+
+    @ add foo @ is equivalent to @ add' foo [] @.
 -}
 class AddE a where
   add  :: (Elt b, Elt c) => a -> StreamIt b c ()
   add1 :: (Elt b, Elt c) => a -> (Exp d) -> StreamIt b c ()
   add2 :: (Elt b, Elt c) => a -> (Exp d, Exp e) -> StreamIt b c ()
   add3 :: (Elt b, Elt c) => a -> (Exp d, Exp e, Exp f) -> StreamIt b c ()
-  info :: Name -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
+  info :: String -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
-  add  a = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a Nothing Nothing Nothing
+  add a = do
+    name <- gensym a "filt"
+    addNode $ AddS name a Nothing Nothing Nothing
   add1 a (b) = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) Nothing Nothing
+    name <- gensym a "filt"
+    addNode $ AddS name a (Just b) Nothing Nothing
   add2 a (b,c) = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) Nothing
+    name <- gensym a "filt"
+    addNode $ AddS name a (Just b) (Just c) Nothing
   add3 a (b,c,d) = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) (Just d)
+    name <- gensym a "filt"
+    addNode $ AddS name a (Just b) (Just c) (Just d)
   info a b = do
     (f, g) <- S.get
     bs <- liftIO $ execStmt b
@@ -144,21 +156,21 @@ instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
       then return ()
       else S.put ((ty, a, bs) : f, g)
     where
-      ty = showFilterType b
+      ty = show b
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
-  add  a = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a Nothing Nothing Nothing
+  add a = do
+    name <- gensym a "filt"
+    addNode $ AddS name a Nothing Nothing Nothing
   add1 a (b) = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) Nothing Nothing
+    name <- gensym a "filt"
+    addNode $ AddS name a (Just b) Nothing Nothing
   add2 a (b,c) = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) Nothing
+    name <- gensym a "filt"
+    addNode $ AddS name a (Just b) (Just c) Nothing
   add3 a (b,c,d) = do
-    n <- lift $ makeStableName a
-    addNode $ AddS ("filt" ++ show (hashStableName n)) a (Just b) (Just c) (Just d)  
+    name <- gensym a "filt"
+    addNode $ AddS name a (Just b) (Just c) (Just d)  
   info a b = do
     (f, g) <- S.get
     bs <- liftIO $ execStream b
@@ -168,24 +180,22 @@ instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
       S.put (f, (ty, a, bs) : g)
       findDefs bs
     where
-      ty = showStreamItType b
+      ty = show b
 
 instance (Elt a, Elt b) => CoreE (StreamIt a b) where
-  var input init = do
+  var init = do
     (id, stmt) <- get
     n <- lift newUnique
-    put (id, Chain stmt $ DeclS (Var input ("var" ++ show (hashUnique n)) init))
-    return $ Var input ("var" ++ show (hashUnique n)) init
-  input v = do
-    v' <- v
-    var True (val v')
-  float = var False zero
-  float' = var False
-  int = var False zero
-  int' = var False
-  bool = var False zero
-  bool' = var False
-  array _ size = var False (Array size zero)
+    let sym = Var ("var" ++ show (hashUnique n)) init
+    put (id, Chain stmt $ DeclS sym)
+    return sym
+  float = var zero
+  float' = var
+  int = var zero
+  int' = var
+  bool = var zero
+  bool' = var
+  array _ size = var (Array size zero)
   a <== b = addNode $ AssignS a b
   ifelse cond onTrue onFalse = do
     (id0, node) <- get
@@ -207,41 +217,40 @@ instance (Elt a, Elt b) => CoreE (StreamIt a b) where
     put (id1, stmt)
     addNode $ LoopS Empty cond Empty stmt1
 
-{-|
-    The 'pipeline' function is used to declare a composite stream consisting of
-    multiple child streams. The variant 'pipeline_' is similar except that it
-    does not gensym a new pipeline filter, and instead adds the pipeline definition
-    inline in the generated code.
--}
-pipelineT :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
-pipelineT t n = do
+addPipeline :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
+addPipeline t a = do
   (id0, node) <- get
-  (id1, node1) <- lift $ evalStream id0 n
+  (id1, node1) <- lift $ evalStream id0 a
   put (id1, node)
   addNode $ Pipeline t node1
 
+-- 'pipeline' declares a composite stream consisting of
+-- multiple children streams.
 pipeline :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-pipeline n = pipelineT False n
+pipeline a = do
+  name <- gensym a "pipe"
+  addPipeline (Just name) a
 
+-- Anonymous inline pipeline functions
 pipeline_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-pipeline_ n = pipelineT True n
+pipeline_ = addPipeline Nothing
 
-{-|
-    The two variants of 'splitjoin' are similar to those of the 'pipeline' statement
-    described above.
--}
-splitjoinT :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
-splitjoinT t n = do
+addSplitjoin :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
+addSplitjoin t a = do
   (id0, node) <- get
-  (id1, node1) <- lift $ evalStream id0 n
+  (id1, node1) <- lift $ evalStream id0 a
   put (id1, node)
   addNode $ SplitJoin t node1
 
+-- Split-join composite streams. 
 splitjoin :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-splitjoin n = splitjoinT False n
+splitjoin a = do
+  name <- gensym a "splitjn"
+  addSplitjoin (Just name) a
 
+-- Anonymous, inline split-join streams. 
 splitjoin_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-splitjoin_ n = splitjoinT True n
+splitjoin_ = addSplitjoin Nothing
 
 class SplitterJoiner a where
   roundrobin :: a
@@ -258,7 +267,9 @@ split s = addNode $ Split s
 join :: (Elt a, Elt b) => Joiner -> StreamIt a b ()
 join j = addNode $ Join j
 
-type GraphInfo = (TypeSig, Name, StatementS)
+type GraphInfo = (String,     -- Type signature
+                  String,     -- Name of the pipeline
+                  StatementS)
 
 findDefs :: StatementS -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
 findDefs a = case a of
@@ -269,13 +280,8 @@ findDefs a = case a of
   Chain a b      -> findDefs a >> findDefs b
   _              -> return ()
 
-showStreamItType :: (Typeable a, Typeable b) => StreamIt a b () -> String 
-showStreamItType s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
-  where
-    t = words $ showTypeSig s
+fileReader :: (Elt a, Elt b, Elt c) => (c -> Const) -> String -> StreamIt a b ()
+fileReader ty name = addNode $ File FileReader (ty zero) name
 
-fileReader :: (Elt a, Elt b, Elt c) => (c -> Const) -> Name -> StreamIt a b ()
-fileReader ty name = addNode $ File False (ty zero) name
-
-fileWriter :: (Elt a, Elt b, Elt c) => (c -> Const) -> Name -> StreamIt a b ()
-fileWriter ty name = addNode $ File True (ty zero) name
+fileWriter :: (Elt a, Elt b, Elt c) => (c -> Const) -> String -> StreamIt a b ()
+fileWriter ty name = addNode $ File FileWriter (ty zero) name

@@ -38,11 +38,11 @@ module Language.StreamIt
   , (>=.)
   -- ** Arithmetic Operations
   , mod_
+  , cond
   -- * Statements
   , Filter
   -- ** Variable Declarations
   , var
-  , input
   , float
   , float'
   , int
@@ -86,11 +86,7 @@ module Language.StreamIt
   , fileWriter
   -- * StreamIt Code Generation
   , Target (..)
-  , generate
-  , genTBB
-  , compileTBB
-  , genStreamIt
-  , compileStreamIt
+  , compile
   , runStreamIt
   ) where
 
@@ -104,38 +100,18 @@ import Language.StreamIt.Filter
 import Language.StreamIt.Graph
 import Language.StreamIt.Backend
 import Language.StreamIt.Compile
-import Language.Haskell.TH hiding (Name, Exp)
-import Language.Haskell.TH.Syntax hiding (Name, Exp)
+import Language.Haskell.TH hiding (Exp)
+import Language.Haskell.TH.Syntax hiding (Exp)
 import qualified Language.Haskell.TH.Syntax as THS
 import Language.Haskell.TH.Lift.Extras
 
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
 $(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 
-generate :: (Elt a, Elt b, Typeable a, Typeable b) => 
-            Target -> Name -> StreamIt a b () -> IO (FilePath)
-generate tgt name s = do
-  st <- liftIO $ execStream s
-  fp <- code tgt (showStreamItType s) name st
-  putStrLn $ "Generated file " ++ fp ++ "."
-  return fp
-
-genTBB :: (Elt a, Elt b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
-genTBB name s = generate TBB name s
-
-compileTBB :: (Elt a, Elt b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q THS.Exp
-compileTBB name s = do
-  f <- liftIO $ generate TBB name s
+compile :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> Q THS.Exp
+compile target s = do
+  f <- liftIO $ codeGen target s
   bs <- liftIO $ callTbb f
-  [|(L.pack $(lift (L.unpack bs)))|]
-
-genStreamIt :: (Elt a, Elt b, Typeable a, Typeable b) => Name -> StreamIt a b () -> IO (FilePath)
-genStreamIt name s = generate StreamIt name s
-
-compileStreamIt :: (Elt a, Elt b, Typeable a, Typeable b) => Name -> StreamIt a b () -> Q THS.Exp
-compileStreamIt name s = do
-  f <- liftIO $ generate StreamIt name s
-  bs <- liftIO $ callStrc f
   [|(L.pack $(lift (L.unpack bs)))|]
 
 instance MonadIO Q where

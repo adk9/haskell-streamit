@@ -16,4 +16,4 @@ myFir = do
   push $ ref result
 
 main :: IO ()
-main = filter' "float->float" "myFir" myFir
+main = filter' "float->float" myFir
