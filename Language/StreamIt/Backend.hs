@@ -3,6 +3,7 @@ module Language.StreamIt.Backend
   , codeGen
   ) where
 
+import Data.Typeable
 import Language.StreamIt.Backend.StreamIt
 import Language.StreamIt.Backend.TBB
 import Language.StreamIt.Core
@@ -17,8 +18,7 @@ data Target
 -- | Generate target code.
 codeGen :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> IO (FilePath)
 codeGen target s = do
-  st <- liftIO $ execStream s
-  fp <- f st
+  fp <- f s
   putStrLn $ "Generated file " ++ fp ++ "."
   return fp
   where

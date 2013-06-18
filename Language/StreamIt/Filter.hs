@@ -3,7 +3,7 @@ module Language.StreamIt.Filter
   , FilterT (..)
   , Rate (..)
   , Filter
-  , FilterInfo
+  , FilterDecl
   , evalStmt
   , execStmt
   , rate
@@ -18,7 +18,6 @@ module Language.StreamIt.Filter
 import Data.Char
 import Data.List
 import Data.Typeable
-import Data.Unique
 import Control.Monad.Trans
 
 import Language.StreamIt.Core
@@ -67,7 +66,7 @@ instance MonadTrans (FilterT a b) where
 instance (MonadIO m) => MonadIO (FilterT a b m) where
 	liftIO = lift . liftIO
 
--- Returns the complete type (int->int) of the filter
+-- Returns the complete type (int->int) of a filter
 instance (Typeable a, Typeable b, Typeable m) => Show (Filter a b m) where
   show s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
     where
@@ -92,15 +91,13 @@ get = FilterT $ \ a -> return (a, a)
 put :: (Monad m) => (Int, Statement) -> FilterT a b m ()
 put s = FilterT $ \ _ -> return ((), s)
 
-type FilterInfo = (String,    -- Type signature
-                   String,    -- Name of the filter
-                   Statement)
+-- FilterDecl = (Type, Name, Arguments, AST node)
+type FilterDecl = (String, String, String, Statement)
 
 instance CoreE (Filter a b) where
   var init = do
     (id, stmt) <- get
-    n <- lift newUnique
-    let sym = Var ("var" ++ show (hashUnique n)) init
+    sym <- lift $ gensym init
     put (id, Sequence stmt $ Decl sym)
     return sym
   float = var zero

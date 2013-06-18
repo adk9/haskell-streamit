@@ -39,7 +39,6 @@ module Language.StreamIt
   , (>=.)
   -- ** Arithmetic Operations
   , mod_
-  , cond
   -- * Statements
   , Filter
   -- ** Variable Declarations

@@ -31,14 +31,19 @@ module Language.StreamIt.Core
   , mod_
   , cond
   , showConstType
+  , gensym
+  , genExpVar
+  , showVarDecl
+  , newStableName
   , isScalar
   , (!)
-  , cond
   ) where
 
 import Data.List
 import Data.Ratio
 import Data.Typeable
+import Data.Unique
+import System.Mem.StableName
 
 infixl 9 !
 infixl 7 `mod_`
@@ -100,7 +105,7 @@ instance (Elt a) => Elt (Array a) where
 
 -- | Generic variable declarations.
 class Monad a => CoreE a where
-  var    :: Elt b  => b -> a (Var b)
+  var    :: Elt b => b -> a (Var b)
   -- Float variable declarations.
   float  :: a (Var Float)
   float' :: Float -> a (Var Float)
@@ -120,6 +125,27 @@ class Monad a => CoreE a where
   -- Loops
   for_   :: (a (), Exp Bool, a ()) -> a () -> a ()
   while_ :: Exp Bool -> a () -> a ()
+
+-- Generate a new variable but do not add it to the AST
+gensym :: Elt b => b -> IO (Var b)
+gensym init = do
+  n <- newUnique
+  return $ Var ("var" ++ show (hashUnique n)) init
+
+-- Generate a new variable for a given expression Exp b
+genExpVar :: Elt b => Exp b -> IO (Var b)
+genExpVar _ = gensym zero
+
+-- Return a variable declaration given a Var b
+showVarDecl :: Elt b => (Var b) -> String
+showVarDecl v = showConstType (const' $ val v) ++ " " ++ vname v
+
+-- Helper function to generate new or find existing names by
+-- hashing the AST node pointer.
+newStableName :: a -> String -> IO String
+newStableName obj template = do
+  n <- makeStableName obj
+  return (template ++ show (hashStableName n))
 
 -- | A logical, arithmetic, comparative, or conditional expression.
 data Exp a where
@@ -190,7 +216,7 @@ evalExp :: Exp a -> a
 evalExp e = case e of
   Ref a     -> val a -- RRN: Is this a safe assumption?  That the variable will have its initial value?
                      -- Seems like this function should return Maybe, and this should potentially be a Nothing case...
-  Peek _    -> error "peek" -- ADK: Peek should not be here.
+  Peek _    -> undefined
   Const a   -> a
   Add a b   -> evalExp a + evalExp b
   Sub a b   -> evalExp a - evalExp b
@@ -261,15 +287,18 @@ not_ = Not
 (||.) :: Exp Bool -> Exp Bool -> Exp Bool
 (||.) = Or
 
+boundsCheck :: Exp Int -> Array a -> Bool
+boundsCheck idx arr = (x <= y)
+  where
+    x = evalExp idx
+    y = evalExp (bound arr)
+
 -- | Array Dereference:
 (!) :: Elt a => Var (Array a) -> Exp Int -> Var a 
 (Var name arr) ! idx =
-  let i = evalExp idx in
-  let b = evalExp $ (bound arr) in
-  -- ADK: NOTE: We might not be able to statically evaluate the
-  --      index every time. This is just an optimistic check.
-  if (i <= b) then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
-  else error $ "invalid array index: " ++ show i ++ " in " ++ name ++ "[" ++ show b ++ "]"
+  if (boundsCheck idx arr)
+  then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
+  else error $ "invalid array index: " ++ show idx ++ " in " ++ show (Var name arr)
 
 -- | The conjunction of a Exp Bool list.
 and_ :: [Exp Bool] -> Exp Bool
@@ -302,10 +331,6 @@ a /==. b = not_ (a ==. b)
 -- | Greater than or equal.
 (>=.) :: NumE a => Exp a -> Exp a -> Exp Bool
 (>=.) = Ge
-
--- | Expression level conditionals.
-cond :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
-cond = Mux
 
 -- | Modulo.
 mod_ :: Exp Int -> Int -> Exp Int
@@ -343,4 +368,3 @@ a *=. b = a <== ref a * b
 -- | Divide and assign a Var Int.
 (/=.) :: CoreE a => Var Int -> Exp Int -> a ()
 a /=. b = a <== ref a / b
-

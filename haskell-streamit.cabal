@@ -1,5 +1,5 @@
 name:           haskell-streamit
-version:        0.4
+version:        0.5
 synopsis: 	A StreamIt EDSL in Haskell.
 description: 	StreamIt (<http://groups.csail.mit.edu/cag/streamit/>) is a
 		stream programming language designed for efficient execution
@@ -65,6 +65,7 @@ library
     FunctionalDependencies
     GADTs
     GeneralizedNewtypeDeriving
+    ImpredicativeTypes
     MultiParamTypeClasses
     PatternGuards
     Rank2Types

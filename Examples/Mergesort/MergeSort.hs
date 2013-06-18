@@ -2,7 +2,7 @@ module Examples.Mergesort.MergeSort (mergeSort) where
 
 import Language.StreamIt
 
-sortInput :: Exp Int -> Filter Void Int ()
+sortInput :: Var Int -> Filter Void Int ()
 sortInput n = do
   work Rate {pushRate=ref n, popRate=0, peekRate=0} $ do
     i <- int
@@ -14,7 +14,7 @@ intPrinter = do
   work (Rate 0 1 0) $ do
     println $ pop
 
-merger :: Exp Int -> Filter Int Int ()
+merger :: Var Int -> Filter Int Int ()
 merger n = do
   work Rate {pushRate=ref n, popRate=ref n, peekRate=0} $ do
     index1 <- int' 0
@@ -44,8 +44,8 @@ merger n = do
 
     for_ (i <== 0, ref i <. ref n, (.++)i) pop
 
-sorter :: Exp Int -> StreamIt Int Int ()
-sorter = pipeline $ do
+sorter :: Var Int -> StreamIt Int Int ()
+sorter n = pipeline $ do
   if_ (ref n >. 2) (splitjoin_ $ do
                        split roundrobin
                        add1 sorter (ref n / 2)

@@ -2,7 +2,8 @@ module Language.StreamIt.Graph
   ( StreamItT (..)
   , StreamIt
   , StatementS (..)
-  , GraphInfo
+  , FileMode (..)
+  , GraphDecl
   , evalStream
   , execStream
   , findDefs
@@ -23,14 +24,13 @@ module Language.StreamIt.Graph
 
 import Data.Char
 import Data.Typeable
-import Data.Unique
 import Control.Monad.Trans
 import qualified Control.Monad.State as S
-import System.Mem.StableName
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
 
+-- Type of file filter.
 data FileMode = FileReader | FileWriter
 
 data StatementS where
@@ -38,9 +38,9 @@ data StatementS where
   AssignS   :: Elt a => Var a -> Exp a -> StatementS
   BranchS   :: Exp Bool -> StatementS -> StatementS -> StatementS
   LoopS     :: StatementS -> Exp Bool -> StatementS -> StatementS -> StatementS
-  AddS      :: AddE a => String -> a -> Maybe (Exp b) -> Maybe (Exp c) -> Maybe (Exp d) -> StatementS
-  Pipeline  :: Maybe String -> StatementS -> StatementS
-  SplitJoin :: Maybe String -> StatementS -> StatementS
+  AddS      :: (AddE a) => a -> String -> (Maybe (Exp b), Maybe (Exp c), Maybe (Exp d)) -> StatementS
+  Pipeline  :: Bool -> StatementS -> StatementS
+  SplitJoin :: Bool -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
   Join      :: Joiner -> StatementS
   Chain     :: StatementS -> StatementS -> StatementS
@@ -49,12 +49,14 @@ data StatementS where
 
 instance Eq (StatementS) where (==) _ _ = True
 
+-- Type of splitters
 data Splitter = RoundrobinS
 
 instance Show Splitter where
   show sp = case sp of
     RoundrobinS -> "roundrobin()"
 
+-- Type of joiners
 data Joiner = RoundrobinJ
 
 instance Show Joiner where
@@ -90,7 +92,7 @@ instance (Elt a, Elt b) => MonadTrans (StreamItT a b) where
 instance (Elt a, Elt b, MonadIO m) => MonadIO (StreamItT a b m) where
   liftIO = lift . liftIO
 
--- Returns the complete type (int->int) of the pipeline filter
+-- Returns the complete type (int->int) of a pipeline filter
 instance (Typeable a, Typeable b, Typeable m) => Show (StreamIt a b m) where
   show s = map toLower $ (head $ tail t) ++ "->" ++ (head $ tail $ tail t)
     where
@@ -115,78 +117,13 @@ get = StreamItT $ \ a -> return (a, a)
 put :: (Elt a, Elt b, Monad m) => (Int, StatementS) -> StreamItT a b m ()
 put s = StreamItT $ \ _ -> return ((), s)
 
--- Helper gensym function
-gensym :: AddE a => a -> String -> IO String
-gensym obj template = do
-  n <- lift $ makeStableName obj
-  return (template ++ show (hashStableName n))
-
-{-|
-    The 'AddE' class represents add expressions in the StreamIt EDSL. It currently
-    supports two variants of the 'add' statement:
-    1. add  - accepts a filter or a pipeline that accepts no stream parameters.
-    2. add' - used for a filter/pipeline that accepts a list of stream parameters.
-
-    @ add foo @ is equivalent to @ add' foo [] @.
--}
-class AddE a where
-  add  :: (Elt b, Elt c) => a -> StreamIt b c ()
-  add1 :: (Elt b, Elt c) => a -> (Exp d) -> StreamIt b c ()
-  add2 :: (Elt b, Elt c) => a -> (Exp d, Exp e) -> StreamIt b c ()
-  add3 :: (Elt b, Elt c) => a -> (Exp d, Exp e, Exp f) -> StreamIt b c ()
-  info :: String -> a -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
-
-instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
-  add a = do
-    name <- gensym a "filt"
-    addNode $ AddS name a Nothing Nothing Nothing
-  add1 a (b) = do
-    name <- gensym a "filt"
-    addNode $ AddS name a (Just b) Nothing Nothing
-  add2 a (b,c) = do
-    name <- gensym a "filt"
-    addNode $ AddS name a (Just b) (Just c) Nothing
-  add3 a (b,c,d) = do
-    name <- gensym a "filt"
-    addNode $ AddS name a (Just b) (Just c) (Just d)
-  info a b = do
-    (f, g) <- S.get
-    bs <- liftIO $ execStmt b
-    if (elem (ty, a, bs) f)
-      then return ()
-      else S.put ((ty, a, bs) : f, g)
-    where
-      ty = show b
-
-instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
-  add a = do
-    name <- gensym a "filt"
-    addNode $ AddS name a Nothing Nothing Nothing
-  add1 a (b) = do
-    name <- gensym a "filt"
-    addNode $ AddS name a (Just b) Nothing Nothing
-  add2 a (b,c) = do
-    name <- gensym a "filt"
-    addNode $ AddS name a (Just b) (Just c) Nothing
-  add3 a (b,c,d) = do
-    name <- gensym a "filt"
-    addNode $ AddS name a (Just b) (Just c) (Just d)  
-  info a b = do
-    (f, g) <- S.get
-    bs <- liftIO $ execStream b
-    if (elem (ty, a, bs) g)
-      then return ()
-      else do
-      S.put (f, (ty, a, bs) : g)
-      findDefs bs
-    where
-      ty = show b
+-- GraphDecl = (Type, Name, Arguments, AST node)
+type GraphDecl = (String, String, String, StatementS)
 
 instance (Elt a, Elt b) => CoreE (StreamIt a b) where
   var init = do
     (id, stmt) <- get
-    n <- lift newUnique
-    let sym = Var ("var" ++ show (hashUnique n)) init
+    sym <- lift $ gensym init 
     put (id, Chain stmt $ DeclS sym)
     return sym
   float = var zero
@@ -217,40 +154,100 @@ instance (Elt a, Elt b) => CoreE (StreamIt a b) where
     put (id1, stmt)
     addNode $ LoopS Empty cond Empty stmt1
 
+----------------------------------------------------------------------------
+
+--    The 'AddE' class represents add expressions in the StreamIt EDSL.
+class AddE a where
+  -- Add a primitive or composite stream to the stream graph.
+  add  :: (Elt b, Elt c) => a -> StreamIt b c ()
+  -- Add a primitive or composite stream accepting 1 argument.
+  add1 :: (Elt b, Elt c, Elt d) => (Var d -> a) -> (Exp d) -> StreamIt b c ()
+  -- Add a primitive or composite stream accepting 2 arguments.
+  add2 :: (Elt b, Elt c, Elt d, Elt e) => (Var d -> Var e -> a) -> (Exp d, Exp e) -> StreamIt b c ()
+  -- Add a primitive or composite stream accepting 3 arguments.  
+  add3 :: (Elt b, Elt c, Elt d, Elt e, Elt f) => (Var d -> Var e -> Var f -> a) -> (Exp d, Exp e, Exp f) -> StreamIt b c ()
+  -- Given an AST node, returns a list of filter and pipeline declarations
+  -- in the body.
+  info :: a -> String-> S.StateT ([FilterDecl], [GraphDecl]) IO ()
+
+instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
+  add a = addNode $ AddS a "" (Nothing, Nothing, Nothing)
+  add1 a (b) = do
+    x <- lift $ genExpVar b
+    addNode $ AddS (a x) (showVarDecl x) (Just b, Nothing, Nothing)
+  add2 a (b,c) = do
+    x <- lift $ genExpVar b 
+    y <- lift $ genExpVar c
+    addNode $ AddS (a x y) (showVarDecl x ++ "," ++ showVarDecl y) (Just b, Just c, Nothing)
+  add3 a (b,c,d) = do
+    x <- lift $ genExpVar b
+    y <- lift $ genExpVar c
+    z <- lift $ genExpVar d
+    addNode $ AddS (a x y z) (showVarDecl x ++ "," ++ showVarDecl y ++ "," ++ showVarDecl z) (Just b, Just c, Just d)
+  info b args = do
+    (f, g) <- S.get
+    bs <- liftIO $ execStmt b
+    name <- liftIO $ newStableName bs "filt"
+    if (elem (show b, name, args, bs) f)
+      then return ()
+      else S.put ((show b, name, args, bs) : f, g)
+
+instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
+  add a = addNode $ AddS a "" (Nothing, Nothing, Nothing)
+  add1 a (b) = do
+    x <- lift $ genExpVar b
+    addNode $ AddS (a x) (showVarDecl x) (Just b, Nothing, Nothing)
+  add2 a (b,c) = do
+    x <- lift $ genExpVar b 
+    y <- lift $ genExpVar c
+    addNode $ AddS (a x y) (showVarDecl x ++ "," ++ showVarDecl y) (Just b, Just c, Nothing)
+  add3 a (b,c,d) = do
+    x <- lift $ genExpVar b
+    y <- lift $ genExpVar c
+    z <- lift $ genExpVar d
+    addNode $ AddS (a x y z) (showVarDecl x ++ "," ++ showVarDecl y ++ "," ++ showVarDecl z) (Just b, Just c, Just d)
+  info b args = do
+    (f, g) <- S.get
+    bs <- liftIO $ execStream b
+    name <- liftIO $ newStableName bs "filt"
+    if (elem (show b, name, args, bs) g)
+      then return ()
+      else do
+      S.put (f, (show b, name, args, bs) : g)
+      findDefs bs
+
+----------------------------------------------------------------------------
+
 addPipeline :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
-addPipeline t a = do
+addPipeline named a = do
   (id0, node) <- get
   (id1, node1) <- lift $ evalStream id0 a
   put (id1, node)
-  addNode $ Pipeline t node1
+  addNode $ Pipeline named node1
 
 -- 'pipeline' declares a composite stream consisting of
 -- multiple children streams.
 pipeline :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-pipeline a = do
-  name <- gensym a "pipe"
-  addPipeline (Just name) a
+pipeline = addPipeline True
 
--- Anonymous inline pipeline functions
+-- Anonymous, inline pipeline function.
 pipeline_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-pipeline_ = addPipeline Nothing
+pipeline_ = addPipeline False
 
 addSplitjoin :: (Elt a, Elt b) => Bool -> StreamIt a b () -> StreamIt a b ()
-addSplitjoin t a = do
+addSplitjoin named a = do
   (id0, node) <- get
   (id1, node1) <- lift $ evalStream id0 a
   put (id1, node)
-  addNode $ SplitJoin t node1
+  addNode $ SplitJoin named node1
 
 -- Split-join composite streams. 
 splitjoin :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-splitjoin a = do
-  name <- gensym a "splitjn"
-  addSplitjoin (Just name) a
+splitjoin = addSplitjoin True
 
--- Anonymous, inline split-join streams. 
+-- An anonymous, inline split-join stream. 
 splitjoin_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
-splitjoin_ = addSplitjoin Nothing
+splitjoin_ = addSplitjoin False
 
 class SplitterJoiner a where
   roundrobin :: a
@@ -267,21 +264,19 @@ split s = addNode $ Split s
 join :: (Elt a, Elt b) => Joiner -> StreamIt a b ()
 join j = addNode $ Join j
 
-type GraphInfo = (String,     -- Type signature
-                  String,     -- Name of the pipeline
-                  StatementS)
-
-findDefs :: StatementS -> S.StateT ([FilterInfo], [GraphInfo]) IO ()
-findDefs a = case a of
-  BranchS _ a b  -> findDefs a >> findDefs b
-  AddS a b _ _ _ -> info a b
-  Pipeline _ a   -> findDefs a
-  SplitJoin _ a  -> findDefs a
-  Chain a b      -> findDefs a >> findDefs b
-  _              -> return ()
+-- Recurse down the root of the AST and return the filter and pipeline
+-- definitions in the program.
+findDefs :: StatementS -> S.StateT ([FilterDecl], [GraphDecl]) IO ()
+findDefs st = case st of
+  BranchS _ a b   -> findDefs a >> findDefs b
+  AddS a args _   -> info a args
+  Pipeline _ a    -> findDefs a
+  SplitJoin _ a   -> findDefs a
+  Chain a b       -> findDefs a >> findDefs b
+  _               -> return ()
 
 fileReader :: (Elt a, Elt b, Elt c) => (c -> Const) -> String -> StreamIt a b ()
-fileReader ty name = addNode $ File FileReader (ty zero) name
+fileReader ty fname = addNode $ File FileReader (ty zero) fname
 
 fileWriter :: (Elt a, Elt b, Elt c) => (c -> Const) -> String -> StreamIt a b ()
-fileWriter ty name = addNode $ File FileWriter (ty zero) name
+fileWriter ty fname = addNode $ File FileWriter (ty zero) fname
