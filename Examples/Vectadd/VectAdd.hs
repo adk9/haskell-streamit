@@ -4,11 +4,11 @@ import Language.StreamIt
 
 vectAddKernel :: Filter Int Int ()
 vectAddKernel = do
-  work Rate {pushRate=0, popRate=2, peekRate=0} $ do
+  work Rate {pushRate=1, popRate=2, peekRate=0} $ do
     t1 <- int
     t2 <- int
---    t1 <== pop
---    t2 <== pop
+    t1 <== pop
+    t2 <== pop
     push(ref t1 + ref t2)
 
 vectSource :: Var Int -> Var (Array Int) -> Filter Void Int ()
@@ -31,7 +31,7 @@ vectPrinter = do
 vectAdd :: StreamIt Void Void ()
 vectAdd = pipeline $ do
   n <- int' 10
-  arr <- array int 20
+  arr <- array int (2*ref n)
   i <- int
   for_ (i <== 0, ref i <. ref n, (.++)i) $ do
     arr!(2*ref i) <== 2*ref i

@@ -55,8 +55,7 @@ codeGraph (ty, name, args, sn) = case sn of
     ds <- codeGraph (ty, name, args, d)
     return ("for (" ++ codeGraphExpr a ++ "; " ++ show b ++ "; "
       ++ codeGraphExpr c ++ ") {\n" ++ indent ds ++ "}\n")
-  AddS st _ args -> do
-    name <- newStableName st "filt"
+  AddS _ name _ args -> do
     return ("add " ++ name ++ "(" ++ intercalate ", " (printArgs args)
             ++ ");\n" ++ "pipeline.add_filter(" ++ name ++ "_);\n")
   Pipeline False a  -> do

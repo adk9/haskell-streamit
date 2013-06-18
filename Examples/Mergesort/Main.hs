@@ -9,4 +9,4 @@ import Examples.Mergesort.MergeSort (mergeSort)
 --   genStreamIt mergeSort
 --   return ()
 
-main = runStreamIt $(compileStreamIt mergeSort)
+main = runStreamIt $(compile StreamIt mergeSort)

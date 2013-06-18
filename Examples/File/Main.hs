@@ -6,5 +6,5 @@ import Examples.File.FilePrinter (filePrinter)
 import Examples.File.FileTest (fileTest)
 
 main = do
-  runStreamIt $(compileStreamIt fileTest)
-  runStreamIt $(compileStreamIt filePrinter)
+  runStreamIt $(compile StreamIt fileTest)
+  runStreamIt $(compile StreamIt filePrinter)

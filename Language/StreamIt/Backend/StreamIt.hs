@@ -4,7 +4,6 @@ import Data.List
 import Data.Typeable
 import Control.Monad.Trans
 import qualified Control.Monad.State as S
-import System.IO
 
 import Language.StreamIt.Core
 import Language.StreamIt.Filter
@@ -17,17 +16,15 @@ indent = unlines . map ("\t" ++) . lines
 codeStreamIt :: (Elt a, Elt b, Typeable a, Typeable b) => StreamIt a b () -> IO (FilePath)
 codeStreamIt st = do
   s <- liftIO $ execStream st
-  name <- newStableName s "filt"
   (fs, gs) <- S.execStateT (findDefs s) ([],[])
   filters <- mapM codeFilter fs
   graphs <- mapM codeGraph gs
-  mains <- codeGraph (show st, name, "", s)
-  (filename, hdl) <- openTempFile "." "streamhs.str"
-  hPutStr hdl $
+  mains <- codeGraph (show st, "streamhs", "", s)
+  let filename = "streamhs.str"
+  writeFile filename $
     (intercalate "\n\n" filters)
     ++ "\n" ++ (intercalate "\n\n" graphs)
     ++ "\n" ++ mains ++ "\n"
-  hClose hdl
   return filename
 
 -- | Generate StreamIt aggregate filter declarations.
@@ -42,7 +39,11 @@ codeGraph (ty, name, args, st) = do
       as <- codeStmtS a
       return (ty ++ " splitjoin " ++ name ++ "(" ++ args
               ++ ")\n{\n" ++ indent as ++ "}\n")
-    _ -> return "" 
+    Chain a b -> do
+      as <- codeGraph (ty, name, args, a)
+      bs <- codeGraph (ty, name, args, b)
+      return (as ++ bs)
+    _ -> return ""
 
 -- | Generate StreamIt body code for the aggregate filters.
 codeStmtS :: StatementS -> IO String
@@ -69,8 +70,7 @@ codeStmtS sn = case sn of
     ds <- codeStmtS d
     return ("for (" ++ loopAssignment a ++ "; " ++ show b ++ "; "
       ++ loopAssignment c ++ ") {\n" ++ indent ds ++ "}\n")
-  AddS st _ args -> do
-    name <- newStableName st "filt"
+  AddS _ name _ args -> do
     return ("add " ++ name ++ "("
             ++ intercalate ", " (printArgs args) ++ ");\n")
   Pipeline named a -> do

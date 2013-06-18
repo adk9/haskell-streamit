@@ -111,7 +111,9 @@ $(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 compile :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> Q THS.Exp
 compile target s = do
   f <- liftIO $ codeGen target s
-  bs <- liftIO $ callTbb f
+  bs <- case target of
+    StreamIt -> liftIO $ callStrc f
+    TBB -> liftIO $ callTbb f
   [|(L.pack $(lift (L.unpack bs)))|]
 
 instance MonadIO Q where

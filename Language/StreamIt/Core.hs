@@ -134,7 +134,9 @@ gensym init = do
 
 -- Generate a new variable for a given expression Exp b
 genExpVar :: Elt b => Exp b -> IO (Var b)
-genExpVar _ = gensym zero
+genExpVar e = case e of
+  Ref a -> return a
+  _ -> gensym zero
 
 -- Return a variable declaration given a Var b
 showVarDecl :: Elt b => (Var b) -> String

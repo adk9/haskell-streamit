@@ -38,7 +38,7 @@ data StatementS where
   AssignS   :: Elt a => Var a -> Exp a -> StatementS
   BranchS   :: Exp Bool -> StatementS -> StatementS -> StatementS
   LoopS     :: StatementS -> Exp Bool -> StatementS -> StatementS -> StatementS
-  AddS      :: (AddE a) => a -> String -> (Maybe (Exp b), Maybe (Exp c), Maybe (Exp d)) -> StatementS
+  AddS      :: (AddE a) => a -> String -> String -> (Maybe (Exp b), Maybe (Exp c), Maybe (Exp d)) -> StatementS
   Pipeline  :: Bool -> StatementS -> StatementS
   SplitJoin :: Bool -> StatementS -> StatementS
   Split     :: Splitter -> StatementS
@@ -168,53 +168,60 @@ class AddE a where
   add3 :: (Elt b, Elt c, Elt d, Elt e, Elt f) => (Var d -> Var e -> Var f -> a) -> (Exp d, Exp e, Exp f) -> StreamIt b c ()
   -- Given an AST node, returns a list of filter and pipeline declarations
   -- in the body.
-  info :: a -> String-> S.StateT ([FilterDecl], [GraphDecl]) IO ()
+  info :: a -> String -> String-> S.StateT ([FilterDecl], [GraphDecl]) IO ()
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
-  add a = addNode $ AddS a "" (Nothing, Nothing, Nothing)
+  add a = do
+    name <- lift $ newStableName a "filt"
+    addNode $ AddS a name "" (Nothing, Nothing, Nothing)
   add1 a (b) = do
+    name <- lift $ newStableName a "filt"
     x <- lift $ genExpVar b
-    addNode $ AddS (a x) (showVarDecl x) (Just b, Nothing, Nothing)
+    addNode $ AddS (a x) name (showVarDecl x) (Just b, Nothing, Nothing)
   add2 a (b,c) = do
+    name <- lift $ newStableName a "filt"
     x <- lift $ genExpVar b 
     y <- lift $ genExpVar c
-    addNode $ AddS (a x y) (showVarDecl x ++ "," ++ showVarDecl y) (Just b, Just c, Nothing)
+    addNode $ AddS (a x y) name (showVarDecl x ++ "," ++ showVarDecl y) (Just b, Just c, Nothing)
   add3 a (b,c,d) = do
+    name <- lift $ newStableName a "filt"
     x <- lift $ genExpVar b
     y <- lift $ genExpVar c
     z <- lift $ genExpVar d
-    addNode $ AddS (a x y z) (showVarDecl x ++ "," ++ showVarDecl y ++ "," ++ showVarDecl z) (Just b, Just c, Just d)
-  info b args = do
+    addNode $ AddS (a x y z) name (showVarDecl x ++ "," ++ showVarDecl y ++ "," ++ showVarDecl z) (Just b, Just c, Just d)
+  info b name args = do
     (f, g) <- S.get
     bs <- liftIO $ execStmt b
-    name <- liftIO $ newStableName bs "filt"
     if (elem (show b, name, args, bs) f)
       then return ()
-      else S.put ((show b, name, args, bs) : f, g)
+      else S.put ((show b, name, args, bs):f, g)
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
-  add a = addNode $ AddS a "" (Nothing, Nothing, Nothing)
+  add a = do
+    name <- lift $ newStableName a "filt"
+    addNode $ AddS a name "" (Nothing, Nothing, Nothing)
   add1 a (b) = do
+    name <- lift $ newStableName a "filt"
     x <- lift $ genExpVar b
-    addNode $ AddS (a x) (showVarDecl x) (Just b, Nothing, Nothing)
+    addNode $ AddS (a x) name (showVarDecl x) (Just b, Nothing, Nothing)
   add2 a (b,c) = do
+    name <- lift $ newStableName a "filt"
     x <- lift $ genExpVar b 
     y <- lift $ genExpVar c
-    addNode $ AddS (a x y) (showVarDecl x ++ "," ++ showVarDecl y) (Just b, Just c, Nothing)
+    addNode $ AddS (a x y) name (showVarDecl x ++ "," ++ showVarDecl y) (Just b, Just c, Nothing)
   add3 a (b,c,d) = do
+    name <- lift $ newStableName a "filt"
     x <- lift $ genExpVar b
     y <- lift $ genExpVar c
     z <- lift $ genExpVar d
-    addNode $ AddS (a x y z) (showVarDecl x ++ "," ++ showVarDecl y ++ "," ++ showVarDecl z) (Just b, Just c, Just d)
-  info b args = do
+    addNode $ AddS (a x y z) name (showVarDecl x ++ "," ++ showVarDecl y ++ "," ++ showVarDecl z) (Just b, Just c, Just d)
+  info b name args = do
     (f, g) <- S.get
     bs <- liftIO $ execStream b
-    name <- liftIO $ newStableName bs "filt"
     if (elem (show b, name, args, bs) g)
       then return ()
       else do
-      S.put (f, (show b, name, args, bs) : g)
-      findDefs bs
+      S.put (f, (show b, name, args, bs):g) >> findDefs bs
 
 ----------------------------------------------------------------------------
 
@@ -267,13 +274,14 @@ join j = addNode $ Join j
 -- Recurse down the root of the AST and return the filter and pipeline
 -- definitions in the program.
 findDefs :: StatementS -> S.StateT ([FilterDecl], [GraphDecl]) IO ()
-findDefs st = case st of
-  BranchS _ a b   -> findDefs a >> findDefs b
-  AddS a args _   -> info a args
-  Pipeline _ a    -> findDefs a
-  SplitJoin _ a   -> findDefs a
-  Chain a b       -> findDefs a >> findDefs b
-  _               -> return ()
+findDefs st = do
+  case st of
+    BranchS _ a b   -> findDefs a >> findDefs b
+    AddS a n args _ -> info a n args
+    Pipeline True a -> findDefs a
+    SplitJoin True a -> findDefs a
+    Chain a b       -> findDefs a >> findDefs b
+    _               -> return ()
 
 fileReader :: (Elt a, Elt b, Elt c) => (c -> Const) -> String -> StreamIt a b ()
 fileReader ty fname = addNode $ File FileReader (ty zero) fname
