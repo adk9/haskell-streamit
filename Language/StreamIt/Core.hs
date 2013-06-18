@@ -332,14 +332,14 @@ a /==. b = not_ (a ==. b)
 (>=.) :: NumE a => Exp a -> Exp a -> Exp Bool
 (>=.) = Ge
 
+-- | Expression level conditionals.
+cond :: Elt a => Exp Bool -> Exp a -> Exp a -> Exp a
+cond = Cond
+
 -- | Modulo.
 mod_ :: Exp Int -> Int -> Exp Int
 mod_ _ 0 = error "divide by zero (mod_)"
 mod_ a b = Mod a b
-
--- | Conditional Expression.
-cond :: Exp Bool -> Exp a -> Exp a -> Exp a
-cond = Cond
 
 -- | References a variable to be used in an expression.
 ref :: Elt a => Var a -> Exp a
