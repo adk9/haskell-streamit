@@ -1,10 +1,11 @@
-{-# LANGUAGE TypeSynonymInstances, GADTs #-}
+{-# LANGUAGE TypeSynonymInstances, GADTs, ScopedTypeVariables #-}
 
 -- An example of how to wire StreamIt graphs with Arrows (if it is possible!)
 
 import Language.StreamIt
 import Control.Arrow
 import Control.Category
+import Data.Typeable
 
 -- | GADT Reifying the Arrow (and Category) type classes.
 data StreamItArrow a b where
@@ -15,7 +16,7 @@ data StreamItArrow a b where
   
 instance Arrow StreamItArrow where
   arr     = Arr
-  first s = First s
+  first   = First 
   second  = Second
 
 instance Category StreamItArrow where
@@ -25,9 +26,32 @@ instance Category StreamItArrow where
   ar1 . ar2 = Cat ar1 ar2
 
 -- | We can only run arrow computations that operate over Exp's 
-runIt :: (Elt a, Elt b) =>
-         StreamItArrow (Exp a) (Exp b) -> StreamIt a b ()
-runIt = error "foo"
+runIt :: forall inT ouT . (Elt inT, Elt ouT, Typeable ouT, Typeable inT) =>
+         StreamItArrow (Exp inT) (Exp ouT) -> StreamIt inT ouT ()
+runIt rep =
+  case rep of
+    Arr fn ->
+      let filt :: Filter inT ouT ()
+          filt = do
+            work Rate {pushRate=1, popRate=1, peekRate=0} $ do
+              pop
+              push (fn (peek 0))
+              return ()
+      -- We are implicitly part of a pipeline, add one filter to it:
+      in add filt
+
+--    First arr ->   error "Finish FIRST"
+    
+  -- Ok, we can't really do first unless we can make tuples an (Elt), which perhaps
+  -- would be possible by mapping onto struct types.
+
+  -- Really, First should not be handled through a local translation, rather, we
+  -- should zoom out to the surround context and see what the passed-through wire is
+  -- used for.  It could become a teleporting message.  It could result in the
+  -- insertion of a split/join at a larger scope.  A First and Second together can
+  -- represent task parallelism on two different types of data.  It's not actually
+  -- clear how to do that in streamit with no sum types and such a restrictive
+  -- split/join.
 
 ----------------------------------------
 
@@ -48,19 +72,9 @@ intPrinter = do
 helloWorld :: StreamIt Void Void ()
 helloWorld = pipeline $ do
   add intSource
---  arr (+1)
   let a :: StreamItArrow (Exp Int) (Exp Int)
       a = arr (+1)
       r :: StreamIt Int Int ()
       r = runIt a
   add r
   add intPrinter
-
--- fn     = StreamItArrow $ do
---     -- We are implicitly part of a pipeline, add one filter to it:
---     add $ do
---       init' (return ())
---       work Rate {pushRate=1, popRate=1, peekRate=0} $ do
---         x <- pop
---         push (fn x)
---     return ()
