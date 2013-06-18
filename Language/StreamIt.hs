@@ -1,93 +1,12 @@
 module Language.StreamIt
   (
-  -- * Types
-    Exp
-  , Var
-  , Elt
-  , NumE
-  , Void
-  , Const (..)
-  , Array (..)
-  -- * Expressions
-  -- ** Constants
-  , true
-  , false
-  , constant
-  , zero
-  , (.++)
-  , (.--)
-  , (+=)
-  , (-=.)
-  , (*=.)
-  , (/=.)
-  -- ** Variable Reference
-  , ref
-  , (!)
-  -- ** Logical Operations
-  , not_
-  , (&&.)
-  , (||.)
-  , and_
-  , or_
-  , cond
-  -- ** Equality and Comparison
-  , (==.)
-  , (/==.)
-  , (<.)
-  , (<=.)
-  , (>.)
-  , (>=.)
-  -- ** Arithmetic Operations
-  , mod_
-  -- * Statements
-  , Filter
-  -- ** Variable Declarations
-  , var
-  , float
-  , float'
-  , int
-  , int'
-  , bool
-  , bool'
-  , array
-  -- ** Variable Assignment
-  , (<==)
-  -- ** Conditional Execution
-  , ifelse
-  , if_
-  -- ** Iteration
-  , for_
-  , while_
-  -- * StreamIt Statements
-  , StreamIt
-  -- ** StreamIt Flow-rate Primitives
-  , Rate (..)
-  , push
-  , peek
-  , pop
-  -- ** StreamIt I/O
-  , println
-  -- ** StreamIt Work Functions
-  , work
-  , init'
-  -- ** StreamIt Aggregate Filters
-  , add
-  , add1
-  , add2
-  , add3
-  , pipeline
-  , pipeline_
-  , splitjoin
-  , splitjoin_
-  , split
-  , join
-  , roundrobin
-  , fileReader
-  , fileWriter
-  -- * StreamIt Code Generation
-  , Target (..)
-  , compile
-  , runStreamIt
+    module Language.StreamIt.Core,
+    module Language.StreamIt.Filter,
+    module Language.StreamIt.Graph,
+    module Language.StreamIt.Backend,
+    module Language.StreamIt.Compile,
+    -- * StreamIt Code Generation
+    compile
   ) where
 
 import Data.ByteString.Lazy (ByteString)
