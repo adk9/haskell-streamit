@@ -47,10 +47,10 @@ merger n = do
 sorter :: Var Int -> StreamIt Int Int ()
 sorter n = pipeline $ do
   if_ (ref n >. 2) (splitjoin_ $ do
-                       split roundrobin
+                       split $ roundrobin []
                        add1 sorter (ref n / 2)
                        add1 sorter (ref n / 2)
-                       join roundrobin)
+                       join $ roundrobin [])
   add1 merger (ref n)
 
 mergeSort :: StreamIt Void Void ()

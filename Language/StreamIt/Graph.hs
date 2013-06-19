@@ -23,6 +23,7 @@ module Language.StreamIt.Graph
   ) where
 
 import Data.Char
+import Data.List
 import Data.Typeable
 import Control.Monad.Trans
 import qualified Control.Monad.State as S
@@ -50,18 +51,18 @@ data StatementS where
 instance Eq (StatementS) where (==) _ _ = True
 
 -- Type of splitters
-data Splitter = RoundrobinS
+data Splitter = RoundrobinS [Exp Int]
 
 instance Show Splitter where
   show sp = case sp of
-    RoundrobinS -> "roundrobin()"
+    RoundrobinS es -> "roundrobin(" ++ intercalate "," (map show es) ++ ")"
 
 -- Type of joiners
-data Joiner = RoundrobinJ
+data Joiner = RoundrobinJ [Exp Int]
 
 instance Show Joiner where
   show jn = case jn of
-    RoundrobinJ -> "roundrobin()"
+    RoundrobinJ es -> "roundrobin(" ++ intercalate "," (map show es) ++ ")"
 
 -- | The StreamIt monad holds StreamIt statements.
 newtype StreamItT i o m a = StreamItT {runStreamItT :: ((Int, StatementS) -> m (a, (Int, StatementS)))}
@@ -257,7 +258,7 @@ splitjoin_ :: (Elt a, Elt b) => StreamIt a b () -> StreamIt a b ()
 splitjoin_ = addSplitjoin False
 
 class SplitterJoiner a where
-  roundrobin :: a
+  roundrobin :: [Exp Int] -> a
 
 instance SplitterJoiner Splitter where
   roundrobin = RoundrobinS
@@ -265,6 +266,7 @@ instance SplitterJoiner Splitter where
 instance SplitterJoiner Joiner where
   roundrobin = RoundrobinJ
 
+-- Split and join
 split :: (Elt a, Elt b) => Splitter -> StreamIt a b ()
 split s = addNode $ Split s
 
