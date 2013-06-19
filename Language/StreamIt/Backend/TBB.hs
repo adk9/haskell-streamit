@@ -148,7 +148,7 @@ codeStmt a = case a of
                       ++ indent (codeStmt d) ++ "}\n"
   Push a           -> "tbb_return(&" ++ show a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
-  Println a        -> "std::cout << " ++ codeStmtExpr a ++ " << std::endl;\n"
+  Println a        -> "std::cout << " ++ show a ++ " << std::endl;\n"
   Null             -> ""
   where
     codeStmtExpr :: Statement -> String

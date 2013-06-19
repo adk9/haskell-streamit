@@ -136,21 +136,25 @@ instance (Elt a, Elt b) => CoreE (StreamIt a b) where
   a <== b = addNode $ AssignS a b
   ifelse cond onTrue onFalse = do
     (id0, node) <- get
-    (id1, node1) <- lift $ evalStream id0 onTrue
-    (id2, node2) <- lift $ evalStream id1 onFalse
+    (id1, node1) <- lift $ evalStream id0 (onTrue >> return ())
+    (id2, node2) <- lift $ evalStream id1 (onFalse >> return ())
     put (id2, node)
     addNode $ BranchS cond node1 node2
-  if_ cond stmt = ifelse cond stmt $ return ()
+  if_ cond onTrue = do
+    (id0, node) <- get
+    (id1, node1) <- lift $ evalStream id0 (onTrue >> return ())
+    put (id1, node)
+    addNode $ BranchS cond node1 Empty
   for_ (init, cond, inc) body = do
     (id0, stmt) <- get
-    (id1, stmt1) <- lift $ evalStream id0 body
+    (id1, stmt1) <- lift $ evalStream id0 (body >> return ())
     ini <- lift $ execStream init
     inc <- lift $ execStream inc
     put (id1, stmt)
     addNode $ LoopS ini cond inc stmt1
   while_ cond body = do
     (id0, stmt) <- get
-    (id1, stmt1) <- lift $ evalStream id0 body
+    (id1, stmt1) <- lift $ evalStream id0 (body >> return ())
     put (id1, stmt)
     addNode $ LoopS Empty cond Empty stmt1
 

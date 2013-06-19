@@ -25,8 +25,8 @@ module Language.StreamIt.Core
   , (.++)
   , (.--)
   , (+=)
-  , (-=.)
-  , (*=.)
+  , (-=)
+  , (*=)
   , (/=.)
   , mod_
   , cond
@@ -48,7 +48,7 @@ import System.Mem.StableName
 infixl 9 !
 infixl 7 `mod_`
 infix  4 ==., /==., <., <=., >., >=.
-infix  4 .++, .--, +=, -=., *=., /=.
+infix  4 .++, .--, +=, -=, *=, /=.
 infixl 3 &&.
 infixl 2 ||.
 infixr 0 <==
@@ -120,11 +120,11 @@ class Monad a => CoreE a where
   -- Assignments.
   (<==)  :: Elt b => Var b -> Exp b -> a ()
   -- Conditional statements.
-  ifelse :: Exp Bool -> a () -> a () -> a ()
-  if_    :: Exp Bool -> a () -> a ()
+  ifelse :: Exp Bool -> a (b) -> a (b) -> a ()
+  if_    :: Exp Bool -> a (b) -> a ()
   -- Loops
-  for_   :: (a (), Exp Bool, a ()) -> a () -> a ()
-  while_ :: Exp Bool -> a () -> a ()
+  for_   :: (a (), Exp Bool, a ()) -> a (b) -> a ()
+  while_ :: Exp Bool -> a (b) -> a ()
 
 -- Generate a new variable but do not add it to the AST
 gensym :: Elt b => b -> IO (Var b)
@@ -360,12 +360,12 @@ ref = Ref
 a += b = a <== ref a + b
 
 -- | Subtract and assign a Var Int.
-(-=.) :: CoreE a => Var Int -> Exp Int -> a ()
-a -=. b = a <== ref a - b
+(-=) :: CoreE a => Var Int -> Exp Int -> a ()
+a -= b = a <== ref a - b
 
 -- | Product assign a Var Int.
-(*=.) :: CoreE a => Var Int -> Exp Int -> a ()
-a *=. b = a <== ref a * b
+(*=) :: CoreE a => Var Int -> Exp Int -> a ()
+a *= b = a <== ref a * b
 
 -- | Divide and assign a Var Int.
 (/=.) :: CoreE a => Var Int -> Exp Int -> a ()

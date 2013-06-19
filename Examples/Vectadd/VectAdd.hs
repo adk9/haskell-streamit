@@ -7,8 +7,8 @@ vectAddKernel = do
   work Rate {pushRate=1, popRate=2, peekRate=0} $ do
     t1 <- int
     t2 <- int
-    t1 <== pop
-    t2 <== pop
+    --t1 <== pop
+    --t2 <== pop
     push(ref t1 + ref t2)
 
 vectSource :: Var Int -> Var (Array Int) -> Filter Void Int ()
@@ -26,7 +26,7 @@ vectSource n z = do
 vectPrinter :: Filter Int Void ()
 vectPrinter = do
   work (Rate 0 1 0) $ do
-    println $ pop
+    println =<< pop
 
 vectAdd :: StreamIt Void Void ()
 vectAdd = pipeline $ do

@@ -32,7 +32,7 @@ data Statement where
   Init     :: Statement -> Statement
   Push     :: Elt a => Exp a -> Statement
   Pop      :: Statement
-  Println  :: Statement -> Statement
+  Println  :: Elt a => Exp a -> Statement
   Null     :: Statement
 
 instance Eq (Statement) where (==) _ _ = True
@@ -110,21 +110,25 @@ instance CoreE (Filter a b) where
   a <== b = statement $ Assign a b
   ifelse cond onTrue onFalse = do
     (id0, stmt) <- get
-    (id1, stmt1) <- lift $ evalStmt id0 onTrue
-    (id2, stmt2) <- lift $ evalStmt id1 onFalse
+    (id1, stmt1) <- lift $ evalStmt id0 (onTrue >> return ())
+    (id2, stmt2) <- lift $ evalStmt id1 (onFalse >> return ())
     put (id2, stmt)
     statement $ Branch cond stmt1 stmt2
-  if_ cond stmt = ifelse cond stmt $ return ()
+  if_ cond onTrue = do
+    (id0, stmt) <- get
+    (id1, stmt1) <- lift $ evalStmt id0 (onTrue >> return ())
+    put (id1, stmt)
+    statement $ Branch cond stmt1 Null
   for_ (init, cond, inc) body = do
     (id0, stmt) <- get
-    (id1, stmt1) <- lift $ evalStmt id0 body
+    (id1, stmt1) <- lift $ evalStmt id0 (body >> return ())
     ini <- lift $ execStmt init
     inc <- lift $ execStmt inc
     put (id1, stmt)
     statement $ Loop ini cond inc stmt1
   while_ cond body = do
     (id0, stmt) <- get
-    (id1, stmt1) <- lift $ evalStmt id0 body
+    (id1, stmt1) <- lift $ evalStmt id0 (body >> return ())
     put (id1, stmt)
     statement $ Loop Null cond Null stmt1
 
@@ -134,23 +138,17 @@ push a = statement $ Push a
 
 -- | Peek
 peek :: Elt a => Exp Int -> Exp a
--- RRN: Shouldn't the type be:
---  pop :: (Elt a, Elt b) => Exp Int -> Filter a b (Exp b)
 peek = Peek
 
 -- | Pop
-pop :: (Elt a, Elt b) => Filter a b ()
--- RRN: Shouldn't the type be:
---  pop :: (Elt a, Elt b) => Filter a b (Exp b)
-pop = statement $ Pop
+pop :: (Elt a, Elt b) => Filter a b (Exp a)
+pop = do
+  statement Pop
+  return (constant zero)
 
 -- | Println
-println :: (Elt a, Elt b) => Filter a b () -> Filter a b ()
--- RRN: I would expect:
--- println :: (Elt a) => Exp a -> Filter a b ()
-println f = do
-  s <- lift $ execStmt f
-  statement $ Println s
+println :: (Elt a) => Exp a -> Filter b c ()
+println f = statement $ Println f
 
 -- | Rate declarations for work functions
 data Rate = Rate {

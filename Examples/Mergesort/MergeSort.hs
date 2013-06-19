@@ -12,7 +12,7 @@ sortInput n = do
 intPrinter :: Filter Int Void ()
 intPrinter = do
   work (Rate 0 1 0) $ do
-    println $ pop
+    println =<< pop
 
 merger :: Var Int -> Filter Int Int ()
 merger n = do

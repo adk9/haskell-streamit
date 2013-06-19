@@ -15,7 +15,7 @@ intSource = do
 intPrinter :: Filter Int Void ()
 intPrinter = do
   work (Rate 0 1 0) $ do
-    println $ pop
+    println =<< pop
 
 helloWorld :: StreamIt Void Void ()
 helloWorld = pipeline $ do

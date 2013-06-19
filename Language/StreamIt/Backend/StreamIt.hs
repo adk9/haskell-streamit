@@ -135,7 +135,7 @@ codeStmt a = case a of
                       ++ " {\n" ++ indent (codeStmt d) ++ "}\n"
   Push a           -> "push(" ++ show a ++ ");\n"
   Pop              -> codeStmtExpr a ++ ";\n"
-  Println a        -> "println(" ++ codeStmtExpr a ++ ");\n"
+  Println a        -> "println(" ++ show a ++ ");\n"
   Null             -> ""
   where
     codeStmtExpr :: Statement -> String
