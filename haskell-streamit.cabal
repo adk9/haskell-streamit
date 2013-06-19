@@ -40,9 +40,10 @@ library
     Language.StreamIt.Backend.StreamIt
     Language.StreamIt.Backend.TBB
     Language.StreamIt.Core
+    Language.StreamIt.Compile
     Language.StreamIt.Filter
     Language.StreamIt.Graph
-    Language.StreamIt.Compile
+    Language.StreamIt.Runtime
     Language.Haskell.TH.Lift.Extras
     Examples.StreamIt
     Examples.Hello.HelloWorld
