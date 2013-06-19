@@ -193,9 +193,11 @@ instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (Filter a b ()) where
   info b name args = do
     (f, g) <- S.get
     bs <- liftIO $ execStmt b
-    if (elem (show b, name, args, bs) f)
+    if (elem name $ map getName f)
       then return ()
       else S.put ((show b, name, args, bs):f, g)
+    where
+      getName (_, x, _, _) = x
 
 instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
   add a = do
@@ -219,10 +221,12 @@ instance (Elt a, Elt b, Typeable a, Typeable b) => AddE (StreamIt a b ()) where
   info b name args = do
     (f, g) <- S.get
     bs <- liftIO $ execStream b
-    if (elem (show b, name, args, bs) g)
+    if (elem name $ map getName g)
       then return ()
       else do
       S.put (f, (show b, name, args, bs):g) >> findDefs bs
+    where
+      getName (_, x, _, _) = x
 
 ----------------------------------------------------------------------------
 
