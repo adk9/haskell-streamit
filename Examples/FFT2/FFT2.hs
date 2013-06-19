@@ -36,7 +36,7 @@ combineDFT n = do
     i <- int
     for_ (i <== 0, ref i <. ref n, i += 2) $ do
       w!(ref i) <== ref real
-      w!(ref i + 1) <== ref imag
+      w!((ref i) + 1) <== ref imag
       next_real <== (ref real * ref wn_r - ref imag * ref wn_i)
       next_imag <== (ref real * ref wn_i + ref imag * ref wn_r)
       real <== ref next_real
@@ -82,10 +82,10 @@ combineDFT n = do
       y1w_i <== ref y1_r * ref weight_imag + ref y1_i * ref weight_real
 
       results!(ref i) <== ref y0_r + ref y1w_r
-      results!(ref i + 1) <== ref y0_i + ref y1w_i
+      results!((ref i) + 1) <== ref y0_i + ref y1w_i
 	    
       results!(ref n + ref i) <== ref y0_r - ref y1w_r
-      results!(ref n + (ref i + 1)) <== ref y0_i - ref y1w_i
+      results!(ref n + ((ref i) + 1)) <== ref y0_i - ref y1w_i
 
     for_ (i <== 0, ref i <. 2 * ref n, (.++)i) $ do
       pop
@@ -114,7 +114,7 @@ fftReorderSimple n = do
 fftReorder :: Var Int -> StreamIt Float Float ()
 fftReorder n = pipeline $ do
   i <- int
-  for_ (i <== 0, ref i <. (ref n / 2), i *=. 2)
+  for_ (i <== 1, ref i <. (ref n / 2), i *=. 2)
     (add1 fftReorderSimple (ref n / ref i))
 
 fftKernel1 :: Var Int -> StreamIt Float Float ()

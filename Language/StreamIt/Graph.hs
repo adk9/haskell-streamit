@@ -279,9 +279,10 @@ findDefs :: StatementS -> S.StateT ([FilterDecl], [GraphDecl]) IO ()
 findDefs st = do
   case st of
     BranchS _ a b   -> findDefs a >> findDefs b
+    LoopS _ _ _ a   -> findDefs a
     AddS a n args _ -> info a n args
-    Pipeline True a -> findDefs a
-    SplitJoin True a -> findDefs a
+    Pipeline _ a    -> findDefs a
+    SplitJoin _ a   -> findDefs a
     Chain a b       -> findDefs a >> findDefs b
     _               -> return ()
 

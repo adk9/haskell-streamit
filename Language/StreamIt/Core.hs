@@ -298,9 +298,12 @@ boundsCheck idx arr = (x <= y)
 -- | Array Dereference:
 (!) :: Elt a => Var (Array a) -> Exp Int -> Var a 
 (Var name arr) ! idx =
-  if (boundsCheck idx arr)
-  then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
-  else error $ "invalid array index: " ++ show idx ++ " in " ++ show (Var name arr)
+  Var (name ++ "[" ++ show idx ++ "]") $ ele arr
+--  ADK: First, need to fix evalExpr before we can
+--       do bounds checking.
+--  if (boundsCheck idx arr)
+--  then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
+--  else error $ "invalid array index: " ++ show idx ++ " in " ++ show (Var name arr)
 
 -- | The conjunction of a Exp Bool list.
 and_ :: [Exp Bool] -> Exp Bool
