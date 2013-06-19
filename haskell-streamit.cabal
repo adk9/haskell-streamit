@@ -23,10 +23,11 @@ cabal-Version:	>=1.8
 tested-with:    GHC==7.0.2 GHC==7.4.2 GHC==7.6.2
 
 extra-source-files:
-  Examples/file/Main.hs
-  Examples/hello/Main.hs
-  Examples/merge/Main.hs
+  Examples/File/Main.hs
+  Examples/Hello/Main.hs
+  Examples/MergeSort/Main.hs
   Examples/fir/Main.hs
+  Examples/FFT2/Main.hs
 
 source-repository head
   type:     git
