@@ -5,11 +5,8 @@ import Language.StreamIt
 vectAddKernel :: Filter Int Int ()
 vectAddKernel = do
   work Rate {pushRate=1, popRate=2, peekRate=0} $ do
-    t1 <- int
-    t2 <- int
-    t1 <== pop
-    t2 <== pop
-    push(ref t1 + ref t2)
+    push(peek 0 + peek 1)
+    pop; pop
 
 vectSource :: Var Int -> Var (Array Int) -> Filter Void Int ()
 vectSource n z = do
