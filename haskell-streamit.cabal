@@ -57,7 +57,7 @@ library
     base >= 4.0     && < 5,
     mtl  >= 1.1.0.1,
     temporary >= 1.0 && < 1.2,
-    process, directory,
+    process, directory, text,
     bytestring, th-lift,
     unix, zlib, template-haskell
 
@@ -66,6 +66,7 @@ library
     FlexibleInstances
     FlexibleContexts
     FunctionalDependencies
+    ForeignFunctionInterface
     GADTs
     GeneralizedNewtypeDeriving
     ImpredicativeTypes
