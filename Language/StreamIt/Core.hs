@@ -30,6 +30,7 @@ module Language.StreamIt.Core
   , (/=.)
   , mod_
   , cond
+  , fcall
   , showConstType
   , gensym
   , genExpVar
@@ -154,6 +155,7 @@ data Exp a where
   Ref   :: Elt a => Var a -> Exp a
   Peek  :: Elt a => Exp Int -> Exp a -- RRN: this has an effect so it should be in the
                                      -- Filter monad.
+  Fcall :: String -> Exp a -> Exp b
   Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
   Sub   :: NumE a => Exp a -> Exp a -> Exp a
@@ -174,6 +176,7 @@ instance Show (Exp a) where
   show a = case a of
     Ref a     -> show a
     Peek a    -> "peek(" ++ show a ++ ")"
+    Fcall f a -> f ++ "(" ++ show a ++ ")"
     Const a   -> show $ const' a
     Add a b   -> group [show a, "+", show b]
     Sub a b   -> group [show a, "-", show b]
@@ -219,6 +222,7 @@ evalExp e = case e of
   Ref a     -> val a -- RRN: Is this a safe assumption?  That the variable will have its initial value?
                      -- Seems like this function should return Maybe, and this should potentially be a Nothing case...
   Peek _    -> undefined
+  Fcall _ _ -> undefined
   Const a   -> a
   Add a b   -> evalExp a + evalExp b
   Sub a b   -> evalExp a - evalExp b
@@ -373,3 +377,8 @@ a *=. b = a <== ref a * b
 -- | Divide and assign a Var Int.
 (/=.) :: CoreE a => Var Int -> Exp Int -> a ()
 a /=. b = a <== ref a / b
+
+-- | FFI. This takes an arbitrary function name and arguments, and
+-- | splices it directly in the translated program.
+fcall :: String -> Exp a -> Exp b
+fcall = Fcall

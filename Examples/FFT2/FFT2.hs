@@ -23,11 +23,10 @@ combineDFT n = do
   -- coefficients, real and imaginary interleaved
   w <- array float (ref n)
   init' $ do
-    -- FIXME
     wn_r <- float
-    --wn_r <== cos(2 * 3.141592654 / ref n)
+    wn_r <== fcall "cos" (2 * 3.141592654 / ref n)
     wn_i <- float
-    --wn_i <== sin(-2 * 3.141592654 / ref n)
+    wn_i <== fcall "sin" (-2 * 3.141592654 / ref n)
     real <- float' 1
     imag <- float' 0
     next_real <- float
