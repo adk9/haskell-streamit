@@ -147,7 +147,7 @@ peek = Peek
 --   return (constant zero)
 
 -- | Pop
-pop :: (Elt b) => Filter a b (Exp a)
+pop :: (Elt a,Elt b) => Filter a b (Exp a)
 pop = do 
   (id, stmt) <- get
   sym <- lift $ gensym zero

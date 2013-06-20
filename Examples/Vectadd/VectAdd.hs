@@ -7,7 +7,7 @@ vectAddKernel = do
   work Rate {pushRate=1, popRate=2, peekRate=0} $ do
     t1 <- pop
     t2 <- pop
-    push(ref t1 + ref t2)
+    push (t1 + t2)
 
 vectSource :: Var Int -> Var (Array Int) -> Filter Void Int ()
 vectSource n z = do

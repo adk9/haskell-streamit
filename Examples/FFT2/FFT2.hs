@@ -16,7 +16,7 @@ fftTestSource n = do
 floatPrinter :: Filter Float Void ()
 floatPrinter = do
   work (Rate 0 1 0) $ do
-    println $ pop
+    println =<< pop
 
 combineDFT :: Var Int -> Filter Float Float ()
 combineDFT n = do
@@ -113,7 +113,7 @@ fftReorderSimple n = do
 fftReorder :: Var Int -> StreamIt Float Float ()
 fftReorder n = pipeline $ do
   i <- int
-  for_ (i <== 1, ref i <. (ref n / 2), i *=. 2)
+  for_ (i <== 1, ref i <. (ref n / 2), i *= 2)
     (add1 fftReorderSimple (ref n / ref i))
 
 fftKernel1 :: Var Int -> StreamIt Float Float ()
@@ -132,7 +132,7 @@ fftKernel2 n = splitjoin $ do
     (pipeline_ $ do
         add1 fftReorder (ref n)
         j <- int
-        for_ (j <== 2, ref j <=. ref n, j *=. 2)
+        for_ (j <== 2, ref j <=. ref n, j *= 2)
           (add1 combineDFT (ref j)))
   join $ roundrobin [2*ref n]
 
