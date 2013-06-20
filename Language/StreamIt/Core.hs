@@ -155,6 +155,9 @@ data Exp a where
   Ref   :: Elt a => Var a -> Exp a
   Peek  :: Elt a => Exp Int -> Exp a -- RRN: this has an effect so it should be in the
                                      -- Filter monad.
+
+  PopExp :: Elt a => Exp a -- INTERNAL, not typesafe to expose.
+           
   Fcall :: String -> Exp a -> Exp b
   Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
@@ -363,15 +366,15 @@ ref = Ref
 (.--) a = a <== ref a - 1
 
 -- | Sum assign a Var Int.
-(+=) :: CoreE a => Var Int -> Exp Int -> a ()
+(+=) :: (NumE n, CoreE a) => Var n -> Exp n -> a ()
 a += b = a <== ref a + b
 
 -- | Subtract and assign a Var Int.
-(-=.) :: CoreE a => Var Int -> Exp Int -> a ()
+(-=.) :: (NumE n, CoreE a) => Var n -> Exp n -> a ()
 a -=. b = a <== ref a - b
 
 -- | Product assign a Var Int.
-(*=.) :: CoreE a => Var Int -> Exp Int -> a ()
+(*=.) :: (NumE n, CoreE a) => Var n -> Exp n -> a ()
 a *=. b = a <== ref a * b
 
 -- | Divide and assign a Var Int.
