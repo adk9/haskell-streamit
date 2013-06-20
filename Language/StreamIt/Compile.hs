@@ -20,7 +20,7 @@ import Foreign.C.String
 import System.Cmd
 import System.Exit
 import System.Directory
-import System.IO
+import System.IO.Temp
 import System.Posix.Files
 import Language.Haskell.TH hiding (Exp)
 import Language.Haskell.TH.Syntax hiding (Exp)
@@ -44,27 +44,25 @@ data Embedding = EmbBinary L.ByteString
 --   returns the directory in which the file was generated.
 callStrc :: FilePath -> IO (FilePath) 
 callStrc file = do
-  (fp, hd) <- openTempFile "." "streamit."
+  fp <- createTempDirectory "." "streamit.d"
   bracket getCurrentDirectory setCurrentDirectory
     (\_ -> do
         setCurrentDirectory fp
         exitCode <- rawSystem "strc" ["../" ++ file]
         S.when (exitCode /= ExitSuccess) $
           fail "strc failed.")
-  hClose hd
   return fp
 
 -- | Compile a generated TBB C++ file (using g++) and returns the directory
 --   in which the file was generated
 callTbb file = do
-  (fp, hd) <- openTempFile "." "streamit."
+  fp <- createTempDirectory "." "streamit.d"
   bracket getCurrentDirectory setCurrentDirectory
     (\_ -> do
         setCurrentDirectory fp
         exitCode <- rawSystem "g++" ["-O2 -DNDEBUG", "../" ++ file, "-ltbb -lrt"]
         S.when (exitCode /= ExitSuccess) $
           fail "g++ failed.")
-  hClose hd
   return fp
 
 generateSharedLib :: FilePath -> IO String
@@ -80,7 +78,7 @@ generateSharedLib tdir = do
         exitCode <- rawSystem "g++" ["-O3 -fPIC -I$STREAMIT_HOME/library/cluster", "-c -o combined_threads.o" , "combined_threads.cpp"]
         when (exitCode /= ExitSuccess) $
           fail "g++ failed."
-        exitCode <- rawSystem "g++" ["-O3 -fPIC -shared -Wl,-soname,libaout.so -o libaout.so", "combined_threads.o", "-L$STREAMIT_HOME/library/cluster", "-lpthread -lcluster -lstdc++"]
+        exitCode <- rawSystem "g++" ["-O3 -fPIC -shared -Wl,-soname,libaout.so -o ../libaout.so", "combined_threads.o", "-L$STREAMIT_HOME/library/cluster", "-lpthread -lcluster -lstdc++"]
         when (exitCode /= ExitSuccess) $
           fail "g++ failed.")
   return "libaout.so"
@@ -93,6 +91,7 @@ compileEmbed target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   bs <- liftIO $ L.readFile $ dir ++ "/a.out"
+  liftIO $ removeDirectoryRecursive dir
   [| EmbBinary (L.pack $(lift (L.unpack $ compress bs)))|]
 
 instance MonadIO Q where
@@ -106,6 +105,7 @@ compileDynLink target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   shlib <- liftIO $ generateSharedLib dir
+  liftIO $ removeDirectoryRecursive dir
   -- dynamically link libaout.so
   [| DynLink (L.pack $(lift shlib))|]
 
@@ -117,6 +117,7 @@ compileDynLoad target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   shlib <- liftIO $ generateSharedLib dir
+  liftIO $ removeDirectoryRecursive dir
   [| DynLoad (L.pack $(lift shlib))|]
 
 -- Default compilation method
