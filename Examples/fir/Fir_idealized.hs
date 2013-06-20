@@ -56,9 +56,6 @@ fir n weights =
 -- n <- input int
   funFilter $ \ strm loopK -> do
     window <- take n strm
-    -- sum (zipWith (*) weights window) <:>
-    --  loopK (tail strm)
-    
     sum (zipWith (*) weights window) <:>
       loopK (tail strm)
 

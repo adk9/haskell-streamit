@@ -13,29 +13,32 @@ Example
 
 The following program defines a simple Hello World StreamIt program that increments and prints an integer stream.
 
-    module HelloWorld (helloWorld) where
-
+    module Examples.Hello.HelloWorld (helloWorld) where
+    
     import Language.StreamIt
-
-    intSource :: Filter ()
+    
+    intSource :: Filter Void Int ()
     intSource = do
-      x <- int "x"
+      x <- int
       init' $ do
         x <== 0
-
-      work (1, 0, 0) $ do
-        incr x
+    
+      work Rate {pushRate=1, popRate=0, peekRate=0} $ do
+        (.++)x
         push(ref x)
-
-    intPrinter :: Filter ()
+    
+    intPrinter :: Filter Int Void ()
     intPrinter = do
-      work (0, 1, 0) $ do
+      work (Rate 0 1 0) $ do
         println $ pop
-
-    helloWorld :: StreamIt ()
+    
+    helloWorld :: StreamIt Void Void ()
     helloWorld = pipeline $ do
-      add "void->int" "IntSource" intSource
-      add "int->void" "IntPrinter" intPrinter
+      add intSource
+      add intPrinter
+
+Look in the `Examples` directory for other examples and StreamIt constructs
+supported by our EDSL.
 
 Documentation
 -------------

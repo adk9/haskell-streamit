@@ -138,13 +138,23 @@ push a = statement $ Push a
 
 -- | Peek
 peek :: Elt a => Exp Int -> Exp a
+-- RRN: Shouldn't the type be:
+--  peek :: (Elt a, Elt b) => Exp Int -> Filter a b (Exp b)
 peek = Peek
 
+-- pop = do
+--   statement Pop
+--   return (constant zero)
+
 -- | Pop
-pop :: (Elt a, Elt b) => Filter a b (Exp a)
-pop = do
-  statement Pop
-  return (constant zero)
+pop :: (Elt b) => Filter a b (Exp a)
+pop = do 
+  (id, stmt) <- get
+  sym <- lift $ gensym zero
+  put (id, Sequence stmt $
+           Sequence (Decl sym) $
+           Assign sym PopExp )
+  return (Ref sym)
 
 -- | Println
 println :: (Elt a) => Exp a -> Filter b c ()

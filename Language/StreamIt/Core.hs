@@ -30,6 +30,7 @@ module Language.StreamIt.Core
   , (/=.)
   , mod_
   , cond
+  , fcall
   , showConstType
   , gensym
   , genExpVar
@@ -154,6 +155,10 @@ data Exp a where
   Ref   :: Elt a => Var a -> Exp a
   Peek  :: Elt a => Exp Int -> Exp a -- RRN: this has an effect so it should be in the
                                      -- Filter monad.
+
+  PopExp :: Elt a => Exp a -- INTERNAL, not typesafe to expose.
+           
+  Fcall :: String -> Exp a -> Exp b
   Const :: Elt a => a -> Exp a
   Add   :: NumE a => Exp a -> Exp a -> Exp a
   Sub   :: NumE a => Exp a -> Exp a -> Exp a
@@ -174,6 +179,7 @@ instance Show (Exp a) where
   show a = case a of
     Ref a     -> show a
     Peek a    -> "peek(" ++ show a ++ ")"
+    Fcall f a -> f ++ "(" ++ show a ++ ")"
     Const a   -> show $ const' a
     Add a b   -> group [show a, "+", show b]
     Sub a b   -> group [show a, "-", show b]
@@ -219,6 +225,7 @@ evalExp e = case e of
   Ref a     -> val a -- RRN: Is this a safe assumption?  That the variable will have its initial value?
                      -- Seems like this function should return Maybe, and this should potentially be a Nothing case...
   Peek _    -> undefined
+  Fcall _ _ -> undefined
   Const a   -> a
   Add a b   -> evalExp a + evalExp b
   Sub a b   -> evalExp a - evalExp b
@@ -298,9 +305,12 @@ boundsCheck idx arr = (x <= y)
 -- | Array Dereference:
 (!) :: Elt a => Var (Array a) -> Exp Int -> Var a 
 (Var name arr) ! idx =
-  if (boundsCheck idx arr)
-  then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
-  else error $ "invalid array index: " ++ show idx ++ " in " ++ show (Var name arr)
+  Var (name ++ "[" ++ show idx ++ "]") $ ele arr
+--  ADK: First, need to fix evalExpr before we can
+--       do bounds checking.
+--  if (boundsCheck idx arr)
+--  then Var (name ++ "[" ++ show idx ++ "]") $ ele arr
+--  else error $ "invalid array index: " ++ show idx ++ " in " ++ show (Var name arr)
 
 -- | The conjunction of a Exp Bool list.
 and_ :: [Exp Bool] -> Exp Bool
@@ -356,17 +366,22 @@ ref = Ref
 (.--) a = a <== ref a - 1
 
 -- | Sum assign a Var Int.
-(+=) :: CoreE a => Var Int -> Exp Int -> a ()
+(+=) :: (NumE n, CoreE a) => Var n -> Exp n -> a ()
 a += b = a <== ref a + b
 
--- | Subtract and assign a Var Int.
-(-=) :: CoreE a => Var Int -> Exp Int -> a ()
+-- | Subtract and assign a Var.
+(-=) :: (NumE n, CoreE a) => Var n -> Exp n -> a ()
 a -= b = a <== ref a - b
 
--- | Product assign a Var Int.
-(*=) :: CoreE a => Var Int -> Exp Int -> a ()
+-- | Product assign a Var.
+(*=) :: (NumE n, CoreE a) => Var n -> Exp n -> a ()
 a *= b = a <== ref a * b
 
 -- | Divide and assign a Var Int.
 (/=.) :: CoreE a => Var Int -> Exp Int -> a ()
 a /=. b = a <== ref a / b
+
+-- | FFI. This takes an arbitrary function name and arguments, and
+-- | splices it directly in the translated program.
+fcall :: String -> Exp a -> Exp b
+fcall = Fcall

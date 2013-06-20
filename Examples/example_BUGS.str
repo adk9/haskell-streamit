@@ -122,6 +122,23 @@ void->void pipeline example_BUGS()
   add printer();
 }
 
+// <BUG> This filter omits the peek rate, and then does an invalid peek.  It
+// is not caught by the compiler statically.
+// 
+// int->void filter IntPrinter {
+//     work pop 1 {
+//         pop();
+//         println(peek(0));
+//     }
+// }
+//
+// (It prints all zeroes.)
+//
+// Perhaps this falls under the category of an out-of-bounds error
+// that the compiler should not be able to catch.  
+
+
+
 //--------------------------------------------------------------------------------
 // Next, what about a recursive split-join pattern?
 
@@ -138,3 +155,27 @@ void->void pipeline example_BUGS()
     // 	add Multiply();
     // 	join roundrobin();
     // };
+
+//--------------------------------------------------------------------------------
+// Function application also seems to be done through metaprogramming. In the
+VectAdd example, the VectSource filter is defined as:
+
+> void->int filter VectSource(int N, int[N] Z)
+
+The second argument's type  _depends_ on the first argument's, and the compiler
+does a bad job of enforcing them. Arbitrary invocations are allowed:
+
+> (VectSource(40, I[20])
+There is no compilation warning or error in this case, and if the accesses go
+past the array bounds, it just returns a 0.
+ 
+> (VectSource(10, I[20])
+This leads to warnings such as:
+WARNING: Could not Propagate array VarDef[_param_Z__4=null] 10 10
+WARNING: Could not Propagate array VarDef[_param_Z__4=null] 10 10
+Estimating Code size of Filters... done.
+WARNING: Could not Propagate array VarDef[_param_Z__4=null] 10 10
+WARNING: Could not Propagate array VarDef[_param_Z__4=null] 10 10
+
+but the output is as expected.
+

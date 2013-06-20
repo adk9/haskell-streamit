@@ -1,22 +1,31 @@
 module Language.StreamIt.Compile
- ( callStrc,
-   callTbb,
-   runStreamIt
+ ( compile,
  ) where
 
--- import qualified Data.ByteString as B
-import Control.Monad.State
-import Control.Exception
+import Data.ByteString.Lazy (ByteString)
+import Data.Word
+import Data.Typeable
 import qualified Data.ByteString.Lazy as L
+-- import qualified Data.ByteString as B
+import Control.Exception
+import qualified Control.Monad.State as S
+import Control.Monad.Trans (MonadIO(..))
 import Codec.Compression.GZip
 import System.Cmd
-import System.Environment
 import System.Exit
 import System.Directory
-import System.IO
 import System.IO.Temp
-import System.Posix.Files
-import System.Posix.Process
+import Language.Haskell.TH hiding (Exp)
+import Language.Haskell.TH.Syntax hiding (Exp)
+import qualified Language.Haskell.TH.Syntax as THS
+import Language.Haskell.TH.Lift.Extras
+
+import Language.StreamIt.Backend
+import Language.StreamIt.Core
+import Language.StreamIt.Graph
+
+$(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
+$(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 
 -- | Compile the given StreamIt file (using strc) to a resulting executable
 callStrc :: FilePath -> IO (L.ByteString)
@@ -26,22 +35,10 @@ callStrc file = do
       (\_ -> do
           setCurrentDirectory tdir
           exitCode <- rawSystem "strc" ["../" ++ file]
-          when (exitCode /= ExitSuccess) $
+          S.when (exitCode /= ExitSuccess) $
             fail "strc failed."
           bs <- L.readFile "a.out"
           return $ compress bs)
-
--- | Runs a StreamIt executable at run-time
-runStreamIt :: L.ByteString -> IO ()
-runStreamIt bs = do
-  (tf, th) <- openBinaryTempFile "." "streamit"
-  L.hPut th (decompress bs)
-  setFileMode tf ownerExecuteMode
-  hClose th
-  args <- getArgs
-  pid <- forkProcess $ executeFile tf False args Nothing
-  getProcessStatus True False pid
-  removeFile tf
 
 -- | Compile a generated TBB C++ file (using g++)
 callTbb :: FilePath -> IO (L.ByteString)
@@ -51,7 +48,18 @@ callTbb file = do
       (\_ -> do
           setCurrentDirectory tdir
           exitCode <- rawSystem "g++" ["-O2 -DNDEBUG", "../" ++ file, "-ltbb -lrt"]
-          when (exitCode /= ExitSuccess) $
+          S.when (exitCode /= ExitSuccess) $
             fail "g++ failed."
           bs <- L.readFile "a.out"
           return $ compress bs)
+
+compile :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> Q THS.Exp
+compile target s = do
+  f <- liftIO $ codeGen target s
+  bs <- case target of
+    StreamIt -> liftIO $ callStrc f
+    TBB -> liftIO $ callTbb f
+  [|(L.pack $(lift (L.unpack bs)))|]
+
+instance MonadIO Q where
+  liftIO = runIO
