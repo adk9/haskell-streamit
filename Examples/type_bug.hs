@@ -15,6 +15,7 @@ intSource = do
     y <- float
     let z :: Exp Float
         z = peek(0)
+--    y += z
     push(ref x)
 
 intPrinter :: Filter Int Void ()
