@@ -9,18 +9,18 @@ import Test.Framework.Providers.HUnit (testCase)
 
 testHello :: Assertion
 testHello = do
-  runStreamIt $(compileStreamIt "HelloWorld" helloWorld)
+  run StreamIt $(compile StreamIt helloWorld)
   return ()
             
 testMergeSort :: Assertion
 testMergeSort = do
-  runStreamIt $(compileStreamIt "MergeSort" mergeSort)
+  run StreamIt $(compile StreamIt mergeSort)
   return ()
 
 testFile :: Assertion
 testFile = do
-  runStreamIt $(compileStreamIt "FileTest" fileTest)
-  runStreamIt $(compileStreamIt "FilePrinter" filePrinter)
+  run StreamIt $(compile StreamIt fileTest)
+  run StreamIt $(compile StreamIt filePrinter)
   return ()
   
 tests :: [Test]

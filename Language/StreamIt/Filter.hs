@@ -140,11 +140,7 @@ push a = statement $ Push a
 peek :: Elt a => Exp Int -> Exp a
 -- RRN: Shouldn't the type be:
 --  peek :: (Elt a, Elt b) => Exp Int -> Filter a b (Exp b)
-peek = Peek
-
--- pop = do
---   statement Pop
---   return (constant zero)
+peek = PeekExp
 
 -- | Pop
 pop :: (Elt a,Elt b) => Filter a b (Exp a)

@@ -91,7 +91,7 @@ instance Ord Void where _ <= _ = True
 instance Typeable Void where typeOf _ = mkTyConApp (mkTyCon3 "" "" "Void") []
 
 instance Elt Void where
-  zero = undefined
+  zero   = error "no zero element for Void"
   const' = Void
 
 -- | For describing StreamIt array types.
@@ -153,10 +153,9 @@ newStableName obj template = do
 -- | A logical, arithmetic, comparative, or conditional expression.
 data Exp a where
   Ref   :: Elt a => Var a -> Exp a
-  Peek  :: Elt a => Exp Int -> Exp a -- RRN: this has an effect so it should be in the
-                                     -- Filter monad.
 
-  PopExp :: Elt a => Exp a -- INTERNAL, not typesafe to expose.
+  PopExp  :: Elt a => Exp a -- INTERNAL, not typesafe to expose.
+  PeekExp :: Elt a => Exp Int -> Exp a -- INTERNAL, not typesafe to expose.
            
   Fcall :: String -> Exp a -> Exp b
   Const :: Elt a => a -> Exp a
@@ -178,7 +177,8 @@ data Exp a where
 instance Show (Exp a) where
   show a = case a of
     Ref a     -> show a
-    Peek a    -> "peek(" ++ show a ++ ")"
+    PeekExp a -> "peek(" ++ show a ++ ")"
+    PopExp    -> "pop()"
     Fcall f a -> f ++ "(" ++ show a ++ ")"
     Const a   -> show $ const' a
     Add a b   -> group [show a, "+", show b]
@@ -211,9 +211,10 @@ instance NumE a => Num (Exp a) where
   signum a = Cond (Eq a 0) 0 $ Cond (Lt a 0) (-1) 1
   fromInteger = Const . fromInteger
 
+-- RRN: FIXME: Exp Int should have an Integral instance but NOT a Fractional one.
 instance Fractional (Exp Int) where
   (/) = Div
-  fromRational = undefined
+  fromRational = error "fromRational "
 
 instance Fractional (Exp Float) where
   (/) = Div
@@ -224,13 +225,14 @@ evalExp :: Exp a -> a
 evalExp e = case e of
   Ref a     -> val a -- RRN: Is this a safe assumption?  That the variable will have its initial value?
                      -- Seems like this function should return Maybe, and this should potentially be a Nothing case...
-  Peek _    -> undefined
-  Fcall _ _ -> undefined
+  PeekExp _  -> error "evalExp: can't handle peek"
+  PopExp     -> error "evalExp: can't handle pop"
+  Fcall _ _ ->  error "evalExp: can't handle Fcall"
   Const a   -> a
   Add a b   -> evalExp a + evalExp b
   Sub a b   -> evalExp a - evalExp b
   Mul a b   -> evalExp a * evalExp b
-  Div _ _   -> undefined
+  Div _ _   -> error "evalExp: can't handle div"
   Mod a b   -> evalExp a `mod` b
   Not a     -> not $ evalExp a
   And a b   -> evalExp a &&  evalExp b
