@@ -122,6 +122,23 @@ void->void pipeline example_BUGS()
   add printer();
 }
 
+// <BUG> This filter omits the peek rate, and then does an invalid peek.  It
+// is not caught by the compiler statically.
+// 
+// int->void filter IntPrinter {
+//     work pop 1 {
+//         pop();
+//         println(peek(0));
+//     }
+// }
+//
+// (It prints all zeroes.)
+//
+// Perhaps this falls under the category of an out-of-bounds error
+// that the compiler should not be able to catch.  
+
+
+
 //--------------------------------------------------------------------------------
 // Next, what about a recursive split-join pattern?
 
