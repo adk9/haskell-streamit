@@ -8,15 +8,11 @@ import Data.Word
 import Data.Typeable
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as DT (replace, pack, unpack)
--- import qualified Data.ByteString as B
 import Control.Exception
 import Control.Monad
 import qualified Control.Monad.State as S
 import Control.Monad.Trans (MonadIO(..))
 import Codec.Compression.GZip
-import Foreign.Ptr
-import Foreign.C.Types
-import Foreign.C.String
 import System.Cmd
 import System.Exit
 import System.Directory
@@ -34,11 +30,9 @@ import Language.StreamIt.Graph
 $(deriveLiftAbstract ''Word8 'fromInteger 'toInteger)
 $(deriveLiftAbstract ''ByteString 'L.pack 'L.unpack)
 
-foreign import ccall smain :: CInt -> Ptr CString -> IO CInt
-
 data Embedding = EmbBinary L.ByteString
-               | DynLink L.ByteString
-               | DynLoad L.ByteString
+               | DynLink String
+               | DynLoad String
 
 -- | Compiles the given StreamIt file (using strc) to an executable and
 --   returns the directory in which the file was generated.
@@ -91,7 +85,7 @@ compileEmbed target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   bs <- liftIO $ L.readFile $ dir ++ "/a.out"
-  liftIO $ removeDirectoryRecursive dir
+  liftIO $ (ignoringIOErrors . removeDirectory) dir
   [| EmbBinary (L.pack $(lift (L.unpack $ compress bs)))|]
 
 instance MonadIO Q where
@@ -105,9 +99,9 @@ compileDynLink target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   shlib <- liftIO $ generateSharedLib dir
-  liftIO $ removeDirectoryRecursive dir
+  liftIO $ (ignoringIOErrors . removeDirectory) dir
   -- dynamically link libaout.so
-  [| DynLink (L.pack $(lift shlib))|]
+  [| DynLink $(lift shlib)|]
 
 -- Compile as a shared library and load it using `dlsym` at runtime
 compileDynLoad :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> Q THS.Exp
@@ -117,9 +111,12 @@ compileDynLoad target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   shlib <- liftIO $ generateSharedLib dir
-  liftIO $ removeDirectoryRecursive dir
-  [| DynLoad (L.pack $(lift shlib))|]
+  liftIO $ (ignoringIOErrors . removeDirectory) dir  
+  [| DynLoad $(lift shlib)|]
+
+ignoringIOErrors :: IO () -> IO ()
+ignoringIOErrors ioe = ioe `catch` (\e -> const (return ()) (e :: IOError))
 
 -- Default compilation method
 compile :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> Q THS.Exp
-compile = compileEmbed
+compile = compileDynLoad
