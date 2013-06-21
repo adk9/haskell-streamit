@@ -19,7 +19,7 @@ import Language.StreamIt.Backend
 import Language.StreamIt.Compile
 
 type MainFn = CInt -> Ptr CString -> IO CInt
-foreign import ccall smain :: MainFn
+--foreign import ccall smain :: MainFn
 foreign import ccall "dynamic"
   smainptr :: FunPtr MainFn -> MainFn
 
@@ -39,7 +39,7 @@ run t e = case t of
 runStrEmbedded :: L.ByteString -> IO ()
 runStrEmbedded bs = do
   (tf, th) <- openBinaryTempFile "." "streamit"
-  L.hPut th (decompress bs)
+  L.hPut th $ decompress bs
   setFileMode tf ownerExecuteMode
   hClose th
   args <- getArgs
@@ -51,19 +51,19 @@ runStrEmbedded bs = do
 runStrDynLink :: String -> IO ()
 runStrDynLink _ = do
   args <- getArgs
-  cs <- mapM newCString args >>= newArray
-  pid <- forkProcess $ void $ smain (fromIntegral $ length args) cs
-  getProcessStatus True False pid
+  cs <- mapM newCString (["smain"]++args) >>= newArray
+  --pid <- forkProcess $ void $ smain ((fromIntegral $ length args)+1) cs
+  getProcessStatus True False 0
   return ()
 
 -- | Runs a StreamIt executable embedded as a lazy bytestring
 runStrDynLoad :: String -> IO ()
 runStrDynLoad s = do
   args <- getArgs
-  cs <- mapM newCString args >>= newArray
+  cs <-  mapM newCString (["smain"]++args) >>= newArray
   dl <- dlopen s [RTLD_LAZY]
   smain <- dlsym dl "smain"
-  pid <- forkProcess $ void $ smainptr smain (fromIntegral $ length args) cs
+  pid <- forkProcess $ void $ smainptr smain ((fromIntegral $ length args)+1) cs
   dlclose dl
   getProcessStatus True False pid
   return ()

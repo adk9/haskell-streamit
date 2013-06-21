@@ -6,8 +6,10 @@ module Language.StreamIt.Compile
 import Data.ByteString.Lazy (ByteString)
 import Data.Word
 import Data.Typeable
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
-import qualified Data.Text as DT (replace, pack, unpack)
+import qualified Data.Text as DT (replace, pack)
+import Data.Text.Encoding
 import Control.Exception
 import Control.Monad
 import qualified Control.Monad.State as S
@@ -43,7 +45,8 @@ callStrc file = do
     (\_ -> do
         setCurrentDirectory fp
         exitCode <- rawSystem "strc" ["../" ++ file]
-        S.when (exitCode /= ExitSuccess) $
+        S.when (exitCode /= ExitSuccess) $ do
+          (ignoringIOErrors . removeDirectoryRecursive) fp
           fail "strc failed.")
   return fp
 
@@ -55,7 +58,8 @@ callTbb file = do
     (\_ -> do
         setCurrentDirectory fp
         exitCode <- rawSystem "g++" ["-O2 -DNDEBUG", "../" ++ file, "-ltbb -lrt"]
-        S.when (exitCode /= ExitSuccess) $
+        S.when (exitCode /= ExitSuccess) $ do
+          (ignoringIOErrors . removeDirectoryRecursive) fp
           fail "g++ failed.")
   return fp
 
@@ -64,18 +68,16 @@ generateSharedLib tdir = do
   bracket getCurrentDirectory setCurrentDirectory
     (\_ -> do
         setCurrentDirectory tdir
-        txt <- readFile "combined_threads.cpp"
-        writeFile "combined_threads.cpp" $ 
-          DT.unpack (DT.replace (DT.pack "int main(int argc") (DT.pack "extern \"C\" int smain(int argc") (DT.pack txt))
+        txt <- B.readFile "combined_threads.cpp"
+        B.writeFile "combined_threads.cpp" $ 
+          encodeUtf8 (DT.replace (DT.pack "int main(int argc") (DT.pack "extern \"C\" int smain(int argc") (decodeUtf8 txt))
         exist <- fileExist "combined_threads.o"
         when exist $ removeFile "combined_threads.o"
-        exitCode <- rawSystem "g++" ["-O3 -fPIC -I$STREAMIT_HOME/library/cluster", "-c -o combined_threads.o" , "combined_threads.cpp"]
-        when (exitCode /= ExitSuccess) $
-          fail "g++ failed."
-        exitCode <- rawSystem "g++" ["-O3 -fPIC -shared -Wl,-soname,libaout.so -o ../libaout.so", "combined_threads.o", "-L$STREAMIT_HOME/library/cluster", "-lpthread -lcluster -lstdc++"]
-        when (exitCode /= ExitSuccess) $
-          fail "g++ failed.")
-  return "libaout.so"
+        exitCode <- system "g++ -O3 -fPIC -I$STREAMIT_HOME/library/cluster -c -o combined_threads.o combined_threads.cpp"
+        when (exitCode /= ExitSuccess) (fail "g++ failed.")
+        exitCode <- system "g++ -O3 -fPIC -shared -Wl,-soname,libaout.so -o ../libaout.so combined_threads.o -L$STREAMIT_HOME/library/cluster -lpthread -lcluster -lstdc++"
+        when (exitCode /= ExitSuccess) $ (fail "g++ failed."))
+  return "./libaout.so"
 
 -- Compile and embed the resulting executable as a lazy bytestring
 compileEmbed :: (Elt a, Elt b, Typeable a, Typeable b) => Target -> StreamIt a b () -> Q THS.Exp
@@ -85,7 +87,7 @@ compileEmbed target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   bs <- liftIO $ L.readFile $ dir ++ "/a.out"
-  liftIO $ (ignoringIOErrors . removeDirectory) dir
+  liftIO $ (ignoringIOErrors . removeDirectoryRecursive) dir
   [| EmbBinary (L.pack $(lift (L.unpack $ compress bs)))|]
 
 instance MonadIO Q where
@@ -99,7 +101,7 @@ compileDynLink target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   shlib <- liftIO $ generateSharedLib dir
-  liftIO $ (ignoringIOErrors . removeDirectory) dir
+  liftIO $ (ignoringIOErrors . removeDirectoryRecursive) dir
   -- dynamically link libaout.so
   [| DynLink $(lift shlib)|]
 
@@ -111,7 +113,7 @@ compileDynLoad target s = do
     StreamIt -> liftIO $ callStrc f
     TBB -> liftIO $ callTbb f
   shlib <- liftIO $ generateSharedLib dir
-  liftIO $ (ignoringIOErrors . removeDirectory) dir  
+  liftIO $ (ignoringIOErrors . removeDirectoryRecursive) dir  
   [| DynLoad $(lift shlib)|]
 
 ignoringIOErrors :: IO () -> IO ()
