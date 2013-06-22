@@ -13,6 +13,7 @@ import System.Directory
 import System.IO
 import System.Posix.DynamicLinker
 import System.Posix.Files
+import System.Posix.IO.ByteString
 import System.Posix.Process
 
 import Language.StreamIt.Backend
@@ -63,8 +64,15 @@ runStrDynLoad s = do
   cs <-  mapM newCString (["smain"]++args) >>= newArray
   dl <- dlopen s [RTLD_LAZY]
   smain <- dlsym dl "smain"
-  pid <- forkProcess $ void $ smainptr smain ((fromIntegral $ length args)+1) cs
+  (stdoutread, stdoutwrite) <- createPipe
+  pid <- forkProcess $ do
+    dupTo stdoutwrite stdOutput
+    closeFd stdoutwrite
+    void $ smainptr smain ((fromIntegral $ length args)+1) cs
   dlclose dl
+  closeFd stdoutwrite
+  stdouthdl <- fdToHandle stdoutread
+  putStrLn =<< hGetContents stdouthdl
   getProcessStatus True False pid
   return ()
 
